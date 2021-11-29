@@ -1,0 +1,111 @@
+CREATE PROCEDURE [dbo].[SPMSS_AlterFromACL] 
+(
+	@DCLEXR VARCHAR(30),
+	@DCLTPD VARCHAR(10),
+	@DCLSER VARCHAR(4),
+	@DCLNDC INT,
+	@DCLLIN INT,
+	@Source VARCHAR(2000),
+	@Rank INT
+)
+AS
+BEGIN
+	DECLARE @Pos INT
+	DECLARE @SepCount INT
+	DECLARE @PosStart INT
+	DECLARE @PosEnd INT
+	SET @Pos = 1
+	SET @SepCount = 0
+	SET @PosStart = 1
+	SET @PosEnd = 0
+	
+	WHILE @Pos <= LEN(@Source)
+	BEGIN
+		IF SUBSTRING(@Source, @Pos, 1) = CHAR(7)
+		BEGIN
+			SET @SepCount = @SepCount + 1
+			IF @Rank > @SepCount
+				SET @PosStart = @Pos + 1
+		END
+
+		IF @SepCount = @Rank
+		BEGIN
+			SET @PosEnd = @Pos
+			BREAK
+		END
+		
+		SET @Pos = @Pos + 1
+	END
+
+	IF @posend = 0
+		SET @posend = LEN(@Source)+1
+
+
+	UPDATE MSDCL SET DCLACL = (SELECT STUFF(DCL.DCLACL, @PosStart, 1, 'S') FROM MSDCL DCL (NOLOCK) 
+	WHERE DCL.DCLEXR = MSDCL.DCLEXR AND DCL.DCLTPD = MSDCL.DCLTPD AND DCL.DCLSER = MSDCL.DCLSER AND DCL.DCLNDC = MSDCL.DCLNDC AND DCL.DCLLIN = MSDCL.DCLLIN)
+	WHERE MSDCL.DCLEXR = @DCLEXR AND MSDCL.DCLTPD = @DCLTPD AND MSDCL.DCLSER = @DCLSER AND MSDCL.DCLNDC = @DCLNDC AND MSDCL.DCLLIN = @DCLLIN
+
+END
+
+GO
+
+CREATE PROCEDURE [dbo].[SPMSS_SubsRefCorTamanho]
+AS
+BEGIN
+	SET NOCOUNT ON;
+	
+	DECLARE @ref VARCHAR(60)
+	DECLARE @DCLEXR VARCHAR(30)
+	DECLARE @DCLTPD VARCHAR(10)
+	DECLARE @DCLSER VARCHAR(4)
+	DECLARE @DCLNDC INT
+	DECLARE @DCLLIN INT
+	DECLARE @DCLACL VARCHAR(2000)
+	
+	DECLARE @refCorTam VARCHAR(60)
+	DECLARE @RefFinal VARCHAR(60)
+	DECLARE @DescFinal VARCHAR(100)
+
+	DECLARE @ErrorMessage NVARCHAR(4000)
+	DECLARE @ErrorSeverity INT
+	DECLARE @ErrorState INT
+
+	DECLARE curRef CURSOR FOR
+	SELECT ISNULL(dclart, ''), DCLEXR, DCLTPD, DCLSER, DCLNDC, DCLLIN, DCLACL FROM MSDCL(nolock) WHERE DCLSYNCR = 'N' 
+	--GROUP BY dclart
+	OPEN curRef
+		
+		FETCH NEXT FROM curRef INTO @ref,@DCLEXR,@DCLTPD,@DCLSER,@DCLNDC,@DCLLIN,@DCLACL
+		
+		WHILE @@FETCH_STATUS = 0 BEGIN
+			BEGIN TRY
+
+				SET @RefFinal = ''
+				SET @RefFinal = (SELECT ISNULL(ST.ref, '') FROM ST WHERE (RTRIM(ST.u_refpai) + '.' + RTRIM(ST.u_refcor) + '.' + RTRIM(ST.u_reftam)) = @ref)
+				SET @DescFinal = (SELECT ISNULL(ST.design, '') FROM ST WHERE (RTRIM(ST.u_refpai) + '.' + RTRIM(ST.u_refcor) + '.' + RTRIM(ST.u_reftam)) = @ref)
+				
+				IF ((@RefFinal <> '') AND (@ref <> @RefFinal))
+					UPDATE MSDCL SET dclart = @RefFinal, DCLDSA = @DescFinal WHERE DCLEXR = @DCLEXR AND DCLTPD = @DCLTPD AND DCLSER = @DCLSER AND DCLNDC = @DCLNDC AND DCLLIN = @DCLLIN AND DCLART = @ref AND DCLSYNCR = 'N'
+
+				-- Verifica se é um artigo com cor e tamanho
+				SET @refCorTam = dbo.ExtractFromACL(@DCLACL, 15)
+				IF (@refCorTam = 'F')
+					EXEC SPMSS_AlterFromACL @DCLEXR,@DCLTPD,@DCLSER,@DCLNDC,@DCLLIN,@DCLACL,15  
+
+			END TRY
+			BEGIN CATCH
+				SELECT @ErrorMessage = ERROR_MESSAGE(), @ErrorSeverity = ERROR_SEVERITY(), @ErrorState = ERROR_STATE()
+				RAISERROR (@ErrorMessage, @ErrorSeverity, @ErrorState)
+				
+				GOTO FIM
+			END CATCH
+			
+			FETCH NEXT FROM curRef INTO @ref,@DCLEXR,@DCLTPD,@DCLSER,@DCLNDC,@DCLLIN,@DCLACL
+		END
+	FIM:
+		CLOSE curRef
+		DEALLOCATE curRef
+END
+
+
+GO

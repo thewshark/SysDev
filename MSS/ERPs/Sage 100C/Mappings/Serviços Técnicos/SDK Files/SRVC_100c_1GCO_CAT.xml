@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="windows-1252"?>
+<Metadata>
+  <Catalog Application="1GCO" Version="3" Description="Serviços técnicos sage 100c" DateTime="3 de Dezembro de 2018 às 11:00:14" ViewId="DADEMP" ViewParam="PARAMA" Key="">
+    <Tables>
+      <Table Name="U_SIT" Description="Serviço Intervenções">
+        <Fields>
+          <Field Name="SITEXR" Description="Exercício" Type="10" Length="30" />
+          <Field Name="SITSER" Description="Série" Type="10" Length="10" />
+          <Field Name="SITNDC" Description="Número" Type="4" Length="10" />
+          <Field Name="SITLIN" Description="Linha" Type="4" Length="10" />
+          <Field Name="SITLEQ" Description="Linha equipamento" Type="4" Length="10" />
+          <Field Name="SITDSC" Description="Descrição" Type="10" Length="200" />
+          <Field Name="SITEQP" Description="Código Equipamento" Type="10" Length="30" />
+          <Field Name="SITEDS" Description="Descrição Equipamento" Type="10" Length="100" />
+          <Field Name="SITESN" Description="Serial Number do Equipamento" Type="10" Length="100" />
+          <Field Name="SITDTI" Description="Data início Intervenção" Type="10" Length="8" />
+          <Field Name="SITHRI" Description="Hora início Intervenção" Type="10" Length="6" />
+          <Field Name="SITDTF" Description="Data fim Intervenção" Type="10" Length="8" />
+          <Field Name="SITHRF" Description="Hora fim Intervenção" Type="10" Length="6" />
+          <Field Name="SITRLI" Description="Relatório Intervenção" Type="10" Length="200" />
+          <Field Name="SITSU1" Description="Campo utilizador 1" Type="10" Length="200" />
+          <Field Name="SITSU2" Description="Campo utilizador 2" Type="10" Length="200" />
+          <Field Name="SITSU3" Description="Campo utilizador 3" Type="10" Length="200" />
+          <Field Name="SITSU4" Description="Campo utilizador 4" Type="10" Length="200" />
+          <Field Name="SITSU5" Description="Campo utilizador 5" Type="10" Length="200" />
+          <Field Name="SITSU6" Description="Campo utilizador 6" Type="10" Length="200" />
+          <Field Name="SITSU7" Description="Campo utilizador 7" Type="10" Length="200" />
+          <Field Name="SITSU8" Description="Campo utilizador 8" Type="10" Length="200" />
+          <Field Name="SITSU9" Description="Campo utilizador 9" Type="10" Length="20" />
+          <Field Name="SITTER" Description="Terminal" Type="4" Length="2" />
+          <Field Name="SITAC1" Description="Nomes nas assinaturas" Type="10" Length="100" />
+          <Field Name="SITAC2" Description="Login User" Type="10" Length="30" />
+          <Field Name="SITAC3" Description="Login Salesman" Type="10" Length="30" />
+          <Field Name="SITAC4" Description="RTCCOD seleccionado" Type="10" Length="10" />
+          <Field Name="SITAC5" Description="RTLSBT seleccionado" Type="10" Length="10" />
+          <Field Name="SITAC6" Description="Código do tipo de intervenção" Type="10" Length="10" />
+          <Field Name="SITAC7" Description="Data/Hora de pausa" Type="10" Length="20" />
+          <Field Name="SITAC8" Description="Total pausa (minutos)" Type="10" Length="10" />
+          <Field Name="SITAC9" Description="Tempo total intervenção (minutos)" Type="10" Length="10" />
+          <Field Name="SITA10" Description="Tempo real intervenção (minutos)" Type="10" Length="10" />
+        </Fields>
+        <Indexes>
+          <Index Name="PK_SIT" Primary="true" Unique="true">
+            <IndexFields>
+              <IndexField>SITEXR</IndexField>
+              <IndexField>SITSER</IndexField>
+              <IndexField>SITNDC</IndexField>
+              <IndexField>SITLIN</IndexField>
+              <IndexField>SITTER</IndexField>
+            </IndexFields>
+          </Index>
+        </Indexes>
+      </Table>
+      <Table Name="U_SMT" Description="Materiais e Serviços">
+        <Fields>
+          <Field Name="SMTEXR" Description="Exercício" Type="10" Length="30" />
+          <Field Name="SMTSER" Description="Série" Type="10" Length="10" />
+          <Field Name="SMTNDC" Description="Número" Type="4" Length="10" />
+          <Field Name="SMTLEQ" Description="Linha do equipamento" Type="4" Length="10" />
+          <Field Name="SMTLIN" Description="Linha" Type="4" Length="10" />
+          <Field Name="SMTART" Description="Artigo" Type="10" Length="60" />
+          <Field Name="SMTQTD" Description="Quantidade" Type="7" Length="10" />
+          <Field Name="SMTPUN" Description="Preço unitário" Type="7" Length="20" />
+          <Field Name="SMTTD1" Description="Desconto 1" Type="7" Length="10" />
+          <Field Name="SMTTD2" Description="Desconto 2" Type="7" Length="10" />
+          <Field Name="SMTTD3" Description="Desconto 3" Type="7" Length="10" />
+          <Field Name="SMTTD4" Description="Desconto 4" Type="7" Length="10" />
+          <Field Name="SMTOBS" Description="Observações" Type="10" Length="500" />
+          <Field Name="SMTTPL" Description="Tipo de linha N/O/B" Type="10" Length="1" />
+          <Field Name="SMTUND" Description="Unidade" Type="10" Length="8" />
+          <Field Name="SMTQT2" Description="Quantidade Alternativa" Type="7" Length="10" />
+          <Field Name="SMTUN2" Description="Unidade Alternativa" Type="10" Length="8" />
+          <Field Name="SMTAC1" Description="Facturado S/N" Type="10" Length="1" />
+          <Field Name="SMTAC2" Description="Login User" Type="10" Length="30" />
+          <Field Name="SMTAC3" Description="Login Vendedor" Type="10" Length="30" />
+          <Field Name="SMTAC4" Description="RTCCOD seleccionado" Type="10" Length="10" />
+          <Field Name="SMTAC5" Description="RTLSBT seleccionado" Type="10" Length="10" />
+          <Field Name="SMTAC6" Description="Motivo Oferta/Bónus" Type="10" Length="50" />
+          <Field Name="SMTTER" Description="Terminal" Type="4" Length="2" />
+        </Fields>
+        <Indexes>
+          <Index Name="PK_SMT" Primary="true" Unique="true">
+            <IndexFields>
+              <IndexField>SMTEXR</IndexField>
+              <IndexField>SMTSER</IndexField>
+              <IndexField>SMTNDC</IndexField>
+              <IndexField>SMTLEQ</IndexField>
+              <IndexField>SMTLIN</IndexField>
+              <IndexField>SMTTER</IndexField>
+            </IndexFields>
+          </Index>
+        </Indexes>
+      </Table>
+    </Tables>
+    <InternalTables />
+    <ViewValidations />
+    <ViewFormats />
+    <ViewTables />
+  </Catalog>
+  <Scripts />
+  <CustomMenus>
+    <Menus>
+      <Menu Name="USERMENU" Title="O meu Menu" Description="Menu do utilizador" PopupMenuType="NotPopup" ShowInMenuBar="true">
+        <Items />
+      </Menu>
+    </Menus>
+  </CustomMenus>
+</Metadata>

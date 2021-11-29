@@ -1,0 +1,68 @@
+SELECT CLICOD
+	,CLINOM
+	,isnull(LCEDSC, CLIMOR)
+	,ISNULL(VISRTL, VISTIP)
+	,DATAINICIO + ' ' + DATAFIM
+	,CASE 
+		WHEN VISSTS = 'p'
+			THEN '000138000'
+		ELSE '255042042'
+		END
+	,'Previstas: ' + cast(SUM(PV) OVER () AS VARCHAR) + '  Reais: ' + cast(MAX(rowi) OVER () AS VARCHAR) + '  Positivas: ' + cast(sum(P) OVER () AS VARCHAR)
+	,+ '  Negativas: ' + cast(sum(n) OVER () AS VARCHAR) + '   Não previstas: ' + cast((MAX(rowi) OVER () - sum(PV) OVER ()) AS VARCHAR)
+	,DATA_INICIO
+	,VENDEDOR
+FROM (
+	SELECT LCEDSC
+		,VISDTI
+		,VISHRI
+		,VISDTF
+		,VISHRF
+		,VISSTS
+		,CLINOM
+		,CLICOD
+		,VISRTL
+		,CLIMOR
+		,CLIGP1
+		,CLIGP2
+		,substring(VISDTF, 1, 4) + '-' + substring(VISDTF, 5, 2) + '-' + substring(VISDTF, 7, 2) + ' ' + substring(VISHRF, 1, 2) + ':' + substring(VISHRF, 3, 2) + ':' + substring(VISHRF, 5, 2) AS datafim
+		,substring(VISDTI, 1, 4) + '-' + substring(VISDTI, 5, 2) + '-' + substring(VISDTI, 7, 2) + ' ' + substring(VISHRI, 1, 2) + ':' + substring(VISHRI, 3, 2) + ':' + substring(VISHRI, 5, 2) AS datainicio
+		,VISTIP
+		,VISGP2
+		,VISGP1
+		,CASE 
+			WHEN VISCLI IN (
+					SELECT AGDCLI
+					FROM MSAGD
+					WHERE AGDDTI = VISDTI
+					)
+				AND VISSTS <> 'T'
+				THEN 1
+			ELSE 0
+			END AS PV
+		,ROW_NUMBER() OVER (
+			ORDER BY viscli ASC
+			) AS rowi
+		,CASE 
+			WHEN VISSTS = 'P'
+				THEN 1
+			ELSE 0
+			END AS P
+		,CASE 
+			WHEN VISSTS = 'N'
+				THEN 1
+			ELSE 0
+			END AS N
+		,VISDTI + VISHRI AS DATA_INICIO
+		,ISNULL(USRNOM, VISLUS) AS VENDEDOR
+	FROM MSVIS
+	LEFT JOIN MSCLI ON MSCLI.CLICOD = MSVIS.VISCLI
+	LEFT JOIN MSLCE ON MSLCE.LCECOD = MSVIS.VISCLI
+		AND MSLCE.LCELCE = MSVIS.VISLCE
+	LEFT JOIN MSUSR ON USRUSR = VISLUS
+	WHERE VISDTI >= [DATA_INI_MSS] AND VISDTI <= [DATA_FIM_MSS]
+		AND VISVEN IN ([VENDEDORESSTR])
+		AND VISCLI LIKE '%%'
+		AND VISSTS <> 'T'
+	) AS visitas
+ORDER BY datainicio

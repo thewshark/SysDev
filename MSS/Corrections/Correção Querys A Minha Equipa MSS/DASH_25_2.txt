@@ -1,0 +1,41 @@
+SELECT vistip AS tipo
+	,cast(cast(visdti AS DATE) AS VARCHAR) + ' ' + substring(vishri, 1, 2) + ':' + substring(vishri, 3, 2) + ':' + substring(vishri, 5, 2) AS data_inicio
+	,cast(cast(visdtf AS DATE) AS VARCHAR) + ' ' + substring(vishrf, 1, 2) + ':' + substring(vishrf, 3, 2) + ':' + substring(vishrf, 5, 2) AS data_fim
+	,cast(viscli AS VARCHAR) + ': ' + CLINOM AS cliente
+	,climor AS morada_cliente
+	,LCEDSC AS local_entrega
+	,CASE WHEN vissts = 'P' THEN dbo.ExtractString(MSAGD.AGDACL, 7, 7) + ' ' + dbo.ExtractString(MSAGD.AGDACL, 8, 7) + '/' + dbo.ExtractString(MSAGD.AGDACL, 9, 7) ELSE '' END AS doc
+	,CASE WHEN vissts = 'P' THEN cast((
+			SELECT dccvll
+			FROM msdcc
+			WHERE cast(MSDCC.DCCEXR AS VARCHAR) + cast(MSDCC.DCCTPD AS VARCHAR) + cast(MSDCC.DCCSER AS VARCHAR) + cast(MSDCC.DCCNDC AS VARCHAR) = dbo.ExtractString(MSAGD.AGDACL, 6, 7) + dbo.ExtractString(MSAGD.AGDACL, 7, 7) + dbo.ExtractString(MSAGD.AGDACL, 8, 7) + dbo.ExtractString(MSAGD.AGDACL, 9, 7)
+			) AS MONEY) ELSE '' END AS valor_liquido
+	,CASE 
+		WHEN VISSTS = 'P'
+			THEN 'VISITA POSITIVA'
+		ELSE CASE 
+				WHEN VISSTS = 'N'
+					THEN 'VISITA_NEGATIVA'
+				ELSE 'NAO VISITADO'
+				END
+		END
+	,CASE 
+		WHEN isnull(msagd.agdcli, '') = ''
+			THEN 1
+		ELSE 2
+		END
+	,RTVDSC
+	,VISGP2
+	,VISGP1
+	,CLIGP2
+	,CLIGP1
+	,ISNULL(USRNOM, VISLUS) AS VENDEDOR
+FROM msvis
+LEFT JOIN mscli ON clicod = msvis.VISCLI
+LEFT JOIN MSLCE ON MSLCE.LCECOD = MSVIS.VISCLI
+	AND MSLCE.LCELCE = MSVIS.VISLCE
+LEFT JOIN msagd ON msagd.AGDPRT = dbo.ExtractString(MSVIS.VISACL, 1, 7)
+	AND MSAGD.AGDTIP IN ('P', 'A') AND dbo.ExtractString(MSVIS.VISACL, 1, 7) <> ''
+LEFT JOIN MSRTV ON RTVEXR = VISRFE AND RTVSER = VISRFS AND RTVNDC = VISRFN
+LEFT JOIN MSUSR ON USRUSR = VISLUS
+WHERE visdti + vishri = [VISKEY]

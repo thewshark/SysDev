@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="Windows-1252"?>
+<CatalogSolution name="SRVC_100c" description="serviços técnicos" publish="0">
+  <CatalogProjects>
+    <CatalogProject application="1GCO" source="SRVC_100c_1GCO.catprj" />
+  </CatalogProjects>
+</CatalogSolution>
