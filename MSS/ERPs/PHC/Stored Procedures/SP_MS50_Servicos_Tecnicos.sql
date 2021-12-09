@@ -751,7 +751,7 @@ BEGIN
 	DECLARE @SITHRI varchar(6)
 	DECLARE @SITDTF varchar(8)
 	DECLARE @SITHRF varchar(6)
-	DECLARE @SITRLI varchar(200)
+	DECLARE @SITRLI varchar(max)
 	DECLARE @SITACL varchar(2000)
 	DECLARE @SITVND varchar(50)
 	DECLARE @SITTERM int
@@ -1393,7 +1393,7 @@ GO
 --          1       -> Validar sequência do número de documento ( 0 – Não / 1 – Sim)
 --          0       -> Validar totais do recibo (Com a margem indicada)
 -- *******************************************************************************************************************
-ALTER PROCEDURE [dbo].[SPMSS_Integra]
+CREATE PROCEDURE [dbo].[SPMSS_Integra]
 AS
 BEGIN
 	SET NOCOUNT ON
