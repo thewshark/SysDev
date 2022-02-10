@@ -310,7 +310,7 @@ lin.numlinha as 'OriginalLineNumber',
 '' as 'EXR',
 cab.Serie as 'SEC',
 cab.TipoDoc as 'TPD',
-cab.NumDOc as 'NDC',
+cab.NumDoc as 'NDC',
 '' as 'Filter1','' as 'Filter2','' as 'Filter3','' as 'Filter4','' as 'Filter5'
 , lin.Localizacao AS Location
 , CASE WHEN lin.Lote='<L01>' then '' ELSE lin.Lote END AS Lot
@@ -540,8 +540,8 @@ Lin.QtdOriginal as 'Quantity',
 (select isnull(sum(u_Kapps_StockLines.Qty),0) from u_Kapps_StockLines (NOLOCK) where u_Kapps_StockLines.Status <> 'X' and u_Kapps_StockLines.Syncr = 'N'  and (u_Kapps_StockLines.OrigStampHeader=cast(Lin.IdCabecInventarios as varchar(255))) and (u_Kapps_StockLines.OrigStampLin=CAST(linDet.ID AS VARCHAR(255)) + '*' + CAST(LinDet.numlinha as varchar(15)) )) as 'QuantityPicked', 
 Lin.Unidade as 'BaseUnit',
 cab.Armazem as 'Warehouse',
-Lin.Localizacao AS Location,
-CASE WHEN Lin.Lote='<L01>' then '' ELSE Lin.Lote END AS Lot,
+COALESCE(Lin.Localizacao.'') AS Location,
+COALESCE(CASE WHEN Lin.Lote='<L01>' then '' ELSE Lin.Lote END,'') AS Lot,
 CAST(Lin.IdCabecInventarios as varchar(255)) as 'CabKey',
 '' as 'UserCol1',
 '' as 'UserCol2',
@@ -681,3 +681,4 @@ LEFT JOIN u_Kapps_PackingHeader h on h.PackId=d.PackID
 LEFT JOIN u_Kapps_DossierLin lin on lin.StampLin=d.StampLin
 WHERE d.SSCC<>''
 GO
+

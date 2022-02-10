@@ -1171,9 +1171,9 @@ BEGIN
 						END
 						--Taxas de iva
 						IF (@EntityType = 'C') OR (@EntityType = 'CL')
-							SELECT @tabiva = CASE WHEN (SELECT cl.TabIVA FROM cl WITH(NOLOCK) WHERE cl.no = @EntityNumber and cl.estab = @estab) = 0 then st.TABIVA else (SELECT cl.TabIVA FROM cl WITH(NOLOCK) WHERE cl.no = @EntityNumber and cl.estab = @estab) END, @iva = CASE WHEN (SELECT cl.TabIVA FROM cl WITH(NOLOCK) WHERE cl.no = @EntityNumber and cl.estab = @estab) = 0 then taxasiva.taxa else (SELECT ti.taxa FROM cl WITH(NOLOCK) JOIN taxasiva ti WITH(NOLOCK) ON ti.codigo = cl.tabiva WHERE cl.no = @EntityNumber and cl.estab = @estab) END , @usalote = st.usalote, @usr1 = usr1, @usr2 = usr2, @usr3 = usr3, @usr4 = usr4, @usr5 = usr5, @usr6 = usr6, @unidade = unidade, @ArtigodeServicos = stns, @UsaNumSerie = noserie, @familia = familia FROM st WITH(NOLOCK) JOIN taxasiva WITH(NOLOCK) ON  st.TABIVA = taxasiva.codigo WHERE Ref = @Ref
+							SELECT @tabiva = CASE WHEN (SELECT cl.TabIVA FROM cl WITH(NOLOCK) WHERE cl.no = @EntityNumber and cl.estab = @estab) = 0 then st.TABIVA else (SELECT cl.TabIVA FROM cl WITH(NOLOCK) WHERE cl.no = @EntityNumber and cl.estab = @estab) END, @iva = CASE WHEN (SELECT cl.TabIVA FROM cl WITH(NOLOCK) WHERE cl.no = @EntityNumber and cl.estab = @estab) = 0 then taxasiva.taxa else (SELECT ti.taxa FROM cl WITH(NOLOCK) JOIN taxasiva ti WITH(NOLOCK) ON ti.codigo = cl.tabiva WHERE cl.no = @EntityNumber and cl.estab = @estab) END , @usalote = st.usalote, @usr1 = usr1, @usr2 = usr2, @usr3 = usr3, @usr4 = usr4, @usr5 = usr5, @usr6 = usr6, @unidade = unidade, @ArtigodeServicos = stns, @UsaNumSerie = noserie, @familia = familia FROM st WITH(NOLOCK) JOIN taxasiva WITH(NOLOCK) ON  st.TABIVA = taxasiva.codigo WHERE st.Ref = @Ref
 						ELSE
-							SELECT @tabiva = CASE WHEN (SELECT fl.TabIVA FROM fl WITH(NOLOCK) WHERE fl.no = @EntityNumber and fl.estab = @estab) = 0 then st.TABIVA else (SELECT fl.TabIVA FROM fl WITH(NOLOCK) WHERE fl.no = @EntityNumber and fl.estab = @estab) END, @iva = CASE WHEN (SELECT fl.TabIVA FROM fl WITH(NOLOCK) WHERE fl.no = @EntityNumber and fl.estab = @estab) = 0 then taxasiva.taxa else (SELECT ti.taxa FROM fl WITH(NOLOCK) JOIN taxasiva ti WITH(NOLOCK) ON ti.codigo = fl.tabiva WHERE fl.no = @EntityNumber and fl.estab = @estab) END , @usalote = st.usalote, @usr1 = usr1, @usr2 = usr2, @usr3 = usr3, @usr4 = usr4, @usr5 = usr5, @usr6 = usr6, @unidade = unidade, @ArtigodeServicos = stns, @UsaNumSerie = noserie, @familia = familia FROM st WITH(NOLOCK) JOIN taxasiva WITH(NOLOCK) ON  st.TABIVA = taxasiva.codigo WHERE Ref = @Ref
+							SELECT @tabiva = CASE WHEN (SELECT fl.TabIVA FROM fl WITH(NOLOCK) WHERE fl.no = @EntityNumber and fl.estab = @estab) = 0 then st.TABIVA else (SELECT fl.TabIVA FROM fl WITH(NOLOCK) WHERE fl.no = @EntityNumber and fl.estab = @estab) END, @iva = CASE WHEN (SELECT fl.TabIVA FROM fl WITH(NOLOCK) WHERE fl.no = @EntityNumber and fl.estab = @estab) = 0 then taxasiva.taxa else (SELECT ti.taxa FROM fl WITH(NOLOCK) JOIN taxasiva ti WITH(NOLOCK) ON ti.codigo = fl.tabiva WHERE fl.no = @EntityNumber and fl.estab = @estab) END , @usalote = st.usalote, @usr1 = usr1, @usr2 = usr2, @usr3 = usr3, @usr4 = usr4, @usr5 = usr5, @usr6 = usr6, @unidade = unidade, @ArtigodeServicos = stns, @UsaNumSerie = noserie, @familia = familia FROM st WITH(NOLOCK) JOIN taxasiva WITH(NOLOCK) ON  st.TABIVA = taxasiva.codigo WHERE st.Ref = @Ref
 
 						-- Totais
 						SET @sltt = @slvu * @Qty
@@ -1449,6 +1449,7 @@ BEGIN
 	DECLARE @Date DATETIME
 	DECLARE @Qty NUMERIC(18,5)
 	DECLARE @Warehouse VARCHAR(50)
+	DECLARE @Localizacao VARCHAR(50)
 	DECLARE @Lot VARCHAR(100)
 
 	DECLARE @stilstamp CHAR(25)
@@ -1458,7 +1459,7 @@ BEGIN
 	DECLARE @DateTimeTmp DATETIME
 	DECLARE @OrigStampLin VARCHAR(50)
 	DECLARE @StampLin VARCHAR(50)
-
+	DECLARE @unidade VARCHAR(50)
 
 	WAITFOR DELAY '00:00:00.200'
 	SET @ErrorMessage = ''
@@ -1479,13 +1480,14 @@ BEGIN
 	BEGIN TRY
 				
 		DECLARE curLinhasContagem CURSOR FOR
-		SELECT Ref, Description, MovDate, Qty, Warehouse, Lot, StampLin, OrigStampLin
-		FROM u_Kapps_StockLines WITH(NOLOCK)
-		WHERE OrigStampHeader=@StampHeader and InternalStampDoc = @InternalStampDoc and Syncr<>'S'
+		SELECT lin.Ref, lin.Description, lin.MovDate, lin.Qty, lin.Warehouse, lin.location, lin.Lot, lin.StampLin, lin.OrigStampLin, art.BaseUnit
+		FROM u_Kapps_StockLines lin WITH(NOLOCK)
+		LEFT JOIN v_Kapps_Articles art ON art.Code=lin.Ref
+		WHERE lin.OrigStampHeader=@StampHeader and lin.InternalStampDoc = @InternalStampDoc and lin.Syncr<>'S'
 		OPEN curLinhasContagem
-		FETCH NEXT FROM curLinhasContagem INTO @Ref,@Description,@Date,@Qty,@Warehouse,@Lot,@StampLin,@OrigStampLin
-		WHILE @@FETCH_STATUS = 0 BEGIN
-
+		FETCH NEXT FROM curLinhasContagem INTO @Ref,@Description,@Date,@Qty,@Warehouse,@Localizacao,@Lot,@StampLin,@OrigStampLin,@unidade
+		WHILE @@FETCH_STATUS = 0
+		BEGIN
 			WAITFOR DELAY '00:00:00.200' 
 			SET @DateTimeTmp = GETDATE()
 			SET @DateStr = dbo.u_Kapps_DateToString(@DateTimeTmp)
@@ -1494,18 +1496,18 @@ BEGIN
 
 			IF @TipoContagem='C'
 			BEGIN			
-				INSERT INTO stil (stilstamp, ref, design, data, stock, sticstamp, armazem, lote, ousrinis, usrinis, ousrdata, usrdata, ousrhora, usrhora)
-				VALUES(@stilstamp, @Ref, @Description, @Date, @Qty, @Sticstamp, @Warehouse, @Lot, @ousrinis, @usrinis, @ousrdata, @usrdata, @ousrhora, @usrhora) 
+				INSERT INTO stil (stilstamp, ref, design, data, stock, sticstamp, armazem, lote, ousrinis, usrinis, ousrdata, usrdata, ousrhora, usrhora, unidade)
+				VALUES(@stilstamp, @Ref, @Description, @Date, @Qty, @Sticstamp, @Warehouse, @Lot, @ousrinis, @usrinis, @ousrdata, @usrdata, @ousrhora, @usrhora, @unidade) 
 			END	
 			ELSE
 			BEGIN
 				UPDATE stil SET stock = stock + @Qty WHERE STICSTAMP = @StampHeader AND STILSTAMP = @OrigStampLin
 			END
 		  
-			FETCH NEXT FROM curLinhasContagem INTO @Ref,@Description,@Date,@Qty,@Warehouse,@Lot,@StampLin,@OrigStampLin
+			FETCH NEXT FROM curLinhasContagem INTO @Ref,@Description,@Date,@Qty,@Warehouse,@Localizacao,@Lot,@StampLin,@OrigStampLin,@unidade
 		END
 
-		UPDATE u_Kapps_StockLines SET Syncr = 'S', Status='C', SyncrDate=GETDATE() WHERE OrigStampHeader = @StampHeader and InternalStampDoc = @InternalStampDoc
+		UPDATE u_Kapps_StockLines SET Syncr = 'S', Status='C', SyncrDate=GETDATE(), SyncrUser=@UserIntegracao WHERE OrigStampHeader = @StampHeader and InternalStampDoc = @InternalStampDoc
 	
  
 	END TRY
@@ -1612,7 +1614,7 @@ BEGIN
 
 		BEGIN TRANSACTION
 
-		IF(@TipoContagem = 'C') --ASSISTIDA
+		IF(@TipoContagem = 'C')
 		BEGIN
 			DECLARE curContagem CURSOR FOR
 			SELECT DocDate,Name FROM u_Kapps_StockDocs  WITH(NOLOCK) WHERE Stamp = @DocStamp  and Syncr <> 'S'
@@ -1676,7 +1678,7 @@ BEGIN
 		END CATCH
 
 		FIM:
-			IF(@TipoContagem = 'C') --ASSISTIDA
+			IF(@TipoContagem = 'C')
 			BEGIN
 				CLOSE curContagem
 				DEALLOCATE curContagem
@@ -2232,5 +2234,5 @@ GO
 
 
 	
-UPDATE u_Kapps_Parameters SET ParameterValue = '46'  WHERE ParameterGroup='MAIN' and ParameterID = 'SCRIPTSVERSION'
+UPDATE u_Kapps_Parameters SET ParameterValue = '47'  WHERE ParameterGroup='MAIN' and ParameterID = 'SCRIPTSVERSION'
 GO
