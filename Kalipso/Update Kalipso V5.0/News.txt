@@ -1,0 +1,14 @@
+New Features.
+	- In Project Properties, "Default View" and "Allowed Views" icon and label are now dynamic and adapted to the selected Device screen dimensions.
+	- Added "SHA256" to "Finger Print Type" parameter of "FTP Connect".
+
+Kalipso Designer was updated.
+	- Fixed issue reassigning Variables. An error would be produced.
+	- Fixed issue creating a Table Based Form in SQL Statement mode with more than one Plane.
+	- Fixed issue renaming a Form. If the Form had a Tab Control, an error would be produced.
+	- Fixed issue retrieving the text representation of an "Execute Global Action Set" Action with Parameters.
+	- Fixed issue when using sub-parameters in "JSON Import to Table".
+	- Fixed issue when overriding "Allowed Views" Project Settings in Form properties.
+	- Fixed issue when returning from Project Properties. If the "Default View" changed, the change would not be reflected in the Designer.
+	- Fixed issue creating a Report an using Variables.
+	- Fixed issue in "Set Communication Profile Parameter".
