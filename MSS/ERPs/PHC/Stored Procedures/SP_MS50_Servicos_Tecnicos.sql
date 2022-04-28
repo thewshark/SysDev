@@ -135,6 +135,7 @@ BEGIN
 	DECLARE @DCCSND INT
 	DECLARE @Anul INT
     DECLARE @motanul VARCHAR(100)
+	DECLARE @TabIva INT
 	
 	DECLARE @bdemp VARCHAR(2)
 	
@@ -352,10 +353,10 @@ BEGIN
 						IF @no <= 0
 							SELECT TOP 1 @no=no FROM CL WITH (NOLOCK) WHERE clivd = 1 order by no
 
-						EXECUTE SPMSS_GetCliInfo @no, @estab, @CliTipo OUTPUT, @CliZona OUTPUT, @CliSegmento OUTPUT, @CliTelef OUTPUT, @nome OUTPUT, @morada OUTPUT, @local OUTPUT, @codpost OUTPUT, @ncont OUTPUT, @CliPais OUTPUT, @moeda OUTPUT, @CliLocTesoura OUTPUT, @CliContado OUTPUT, @fref OUTPUT, @ccusto OUTPUT
+						EXECUTE SPMSS_GetCliInfo @no, @estab, @CliTipo OUTPUT, @CliZona OUTPUT, @CliSegmento OUTPUT, @CliTelef OUTPUT, @nome OUTPUT, @morada OUTPUT, @local OUTPUT, @codpost OUTPUT, @ncont OUTPUT, @CliPais OUTPUT, @moeda OUTPUT, @CliLocTesoura OUTPUT, @CliContado OUTPUT, @fref OUTPUT, @ccusto OUTPUT, @TabIva OUTPUT
 					END						
 					ELSE
-						EXECUTE SPMSS_GetCliInfo2 @no, @estab, @CliTipo OUTPUT, @CliZona OUTPUT, @CliSegmento OUTPUT, @CliTelef OUTPUT, @CliPais OUTPUT, @moeda OUTPUT, @CliLocTesoura OUTPUT, @CliContado OUTPUT, @fref OUTPUT, @ccusto OUTPUT
+						EXECUTE SPMSS_GetCliInfo2 @no, @estab, @CliTipo OUTPUT, @CliZona OUTPUT, @CliSegmento OUTPUT, @CliTelef OUTPUT, @CliPais OUTPUT, @moeda OUTPUT, @CliLocTesoura OUTPUT, @CliContado OUTPUT, @fref OUTPUT, @ccusto OUTPUT, @TabIva OUTPUT
 				END
 
 
@@ -650,7 +651,7 @@ BEGIN
 				IF (dbo.ExtractFromACL(@SEQACL, 2) <> '')
 				BEGIN
 					SELECT @VENDEDOR = dbo.ExtractFromACL(@SEQACL, 2)
-					SELECT @NomeVENDEDOR = nome FROM cm3(NOLOCK) WHERE cm=@VENDEDOR
+					SELECT @NomeVENDEDOR = cmdesc FROM cm3(NOLOCK) WHERE cm=@VENDEDOR
 				END
 				ELSE
 				BEGIN
