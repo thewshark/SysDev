@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="Windows-1252"?>
+<CatalogProject>
+  <Name>SRVC_100c_1GCO</Name>
+  <Description>Serviços técnicos sage 100c</Description>
+  <Application>1GCO</Application>
+  <Source>SRVC_100c_1GCO_CAT.xml</Source>
+  <PublishName>SRVC_100c.cat</PublishName>
+</CatalogProject>
