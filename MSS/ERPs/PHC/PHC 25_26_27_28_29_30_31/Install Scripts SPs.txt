@@ -1,0 +1,4 @@
+1º Executar script - Scripts MSS\ScriptTables.sql
+2º Executar script - Scripts MSS\ScriptTriggers.sql
+2º Executar script - Scripts MSS\ScriptIndexes.sql
+3º Executar script - SP_MSS50.sql

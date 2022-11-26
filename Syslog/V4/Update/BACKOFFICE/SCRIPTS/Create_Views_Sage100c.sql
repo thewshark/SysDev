@@ -11,10 +11,11 @@ select cli.Nome as NAME, cli.CODIGO as Code, '' AS 'NameByLabel', '' AS 'AdressB
 , Local As Area
 , PAIS As Country
 , TELEF As Phone
-, '' as Latitude
-, '' as Longitude
+, CAST(0 as numeric(10,6)) as Latitude
+, CAST(0 as numeric(10,6)) as Longitude
 , BLNOTAS as OBS
 , 0 AS InternalCustomer						-- 0 Externo, 1 Interno
+, cli.Nome As ShortName
 from Clientes cli (NOLOCK)
 where cli.INACTIVO = 0
 GO
@@ -33,8 +34,8 @@ select forn.Nome as NAME, forn.CODIGO as Code
 , Local As Area
 , PAIS As Country
 , TELEF As Phone
-, '' as Latitude
-, '' as Longitude
+, CAST(0 as numeric(10,6)) as Latitude
+, CAST(0 as numeric(10,6)) as Longitude
 ,  BLNOTAS as OBS
 from FORNEC forn (NOLOCK)
 where forn.INACTIVO = 0
@@ -92,8 +93,9 @@ art.UNBASE as 'BaseUnit', art.Familia as 'Family', CASE WHEN art.CTRSTOCK <> 0 T
 , 0 as LoteControlOut									-- 0-Manual 1-FIFO, 2-FEFO, 3-LIFO
 , CASE WHEN (SELECT VALIDADE FROM CATEGORIAS_LOTES WHERE CATEGORIA = art.CATEGORIA_LOTES)>0 THEN 1 ELSE 0 END as UseExpirationDate
 , CAST(0 as bit) as UseWeight										-- (1-Sim) (0-Não)
-, 0 AS StoreInNrDays
-, 0 AS StoreOutNrDays
+, 0 AS StoreInNrDays									-- Nº de dias minimo de validade na receção (excepto se existir regra a contrariar em [Validades mínimas])
+, 0 AS StoreOutNrDays									-- Nº de dias minimo de validade na expedição (excepto se existir regra a contrariar em [Validades mínimas])
+, CAST(0 as int) AS BoxMaxQuantity
 from Artigos art (NOLOCK)
 where art.INACTIVO = 0
 GO
@@ -104,10 +106,9 @@ IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'[dbo].[v_Kapps
 DROP view [dbo].[v_Kapps_Barcodes]
 GO
 CREATE view [dbo].[v_Kapps_Barcodes] as 
-select cb.Artigo as Code, cb.CODIGO as Barcode, cb.UNID as Unit,
-cb.QTD as Quantity
+select cb.Artigo as Code, cb.CODIGO as Barcode, cb.UNID as Unit, cb.QTD as Quantity
 from CBARRAS cb (NOLOCK)
-JOIN Artigos art (NOLOCK) on art.CODIGO = cb.Artigo
+left join Artigos art (NOLOCK) on art.CODIGO = cb.Artigo
 where art.INACTIVO = 0
 GO
 
@@ -135,12 +136,13 @@ IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'[dbo].[v_Kapps
 DROP view [dbo].[v_Kapps_Lots]
 GO
 CREATE view [dbo].[v_Kapps_Lots] as 
-select lot.CODLOTE as Lot, lot.ARTIGO as Article, lot.Armazem as Warehouse, lot.DTAVALPR AS ExpirationDate, (lot.QTDINICI - lot.QTDSID) as Stock
-, sa.LOCAL AS Location 										--A Confirmar
-, DTAENTRA AS ProductionDate
+select lot.CODLOTE as Lot
+, lot.ARTIGO as Article
+, lot.DTAVALPR AS ExpirationDate
+, lot.DTAENTRA AS ProductionDate
+, CAST(1 as bit) as Actif
 from ARTLOT lot (NOLOCK) 
 join ARTIGOS art (NOLOCK) on art.CODIGO = lot.ARTIGO
-join ARTARM sa (NOLOCK) on sa.ARTIGO = lot.ARTIGO
 where art.INACTIVO = 0
 GO
 
@@ -201,8 +203,8 @@ cab.NNUMDOC as 'NDC',
 from DOCGCCAB cab (NOLOCK)
 join Clientes cli (NOLOCK) ON cli.CODIGO = cab.TERCEIRO
 join TPDOC tdoc (NOLOCK) on tdoc.CODIGO = cab.TPDOC
-left join u_KApps_DossierLin (NOLOCK) on (u_KApps_DossierLin.StampBo = (cast(cab.SERIE AS VARCHAR(20)) + '*' + cast(cab.TPDOC AS VARCHAR(50)) + '*' + cast(cab.ANO AS VARCHAR(20)) + '*' + CAST(cab.NNUMDOC as varchar(10)))) 
-and u_KApps_DossierLin.Status <> 'X' and u_KApps_DossierLin.Integrada = 'N' 
+left join u_Kapps_DossierLin (NOLOCK) on (u_Kapps_DossierLin.StampBo = (cast(cab.SERIE AS VARCHAR(20)) + '*' + cast(cab.TPDOC AS VARCHAR(50)) + '*' + cast(cab.ANO AS VARCHAR(20)) + '*' + CAST(cab.NNUMDOC as varchar(10)))) 
+and u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N' 
 where cab.aprovado = 1 and cab.TPFSTC = 0
 GO
 
@@ -220,19 +222,19 @@ Lin.DESCR as 'Description',
 ((Lin.QTDORIG / Lin.FACTOR) - (Lin.QUANT/ Lin.FACTOR)) AS 'QuantitySatisfied', 
 ((Lin.QTDORIG / Lin.FACTOR) - ((Lin.QTDORIG / Lin.FACTOR) - (Lin.QUANT/ Lin.FACTOR))) -  
        (
-       select isnull(sum(u_KApps_DossierLin.Qty2),0) 
-       from u_KApps_DossierLin (NOLOCK) 
-       where u_KApps_DossierLin.Status <> 'X' 
-       and u_KApps_DossierLin.Integrada = 'N' 
-       and ((cast(cab.SERIE AS VARCHAR(10)) + '*' + cast(cab.TPDOC AS VARCHAR(50)) + '*' + cast(cab.ANO AS VARCHAR(20)) + '*' + CAST(cab.NNUMDOC as varchar(10)))=u_KApps_DossierLin.stampbo) 
-       and ((cast(lin.NNUMDOC AS VARCHAR(20)) + '*' + CAST(lin.numlinha as varchar(15))) = u_KApps_DossierLin.Stampbi))                                         as 'QuantityPending',
+       select isnull(sum(u_Kapps_DossierLin.Qty2),0) 
+       from u_Kapps_DossierLin (NOLOCK) 
+       where u_Kapps_DossierLin.Status = 'A' 
+       and u_Kapps_DossierLin.Integrada = 'N' 
+       and ((cast(cab.SERIE AS VARCHAR(10)) + '*' + cast(cab.TPDOC AS VARCHAR(50)) + '*' + cast(cab.ANO AS VARCHAR(20)) + '*' + CAST(cab.NNUMDOC as varchar(10)))=u_Kapps_DossierLin.stampbo) 
+       and ((cast(lin.NNUMDOC AS VARCHAR(20)) + '*' + CAST(lin.numlinha as varchar(15))) = u_Kapps_DossierLin.Stampbi))                                         as 'QuantityPending',
               (
-              select isnull(sum(u_KApps_DossierLin.Qty2),0) 
-              from u_KApps_DossierLin (NOLOCK) 
-              where u_KApps_DossierLin.Status <> 'X' 
-              and u_KApps_DossierLin.Integrada = 'N' 
-              and ((cast(cab.SERIE AS VARCHAR(10)) + '*' + cast(cab.TPDOC AS VARCHAR(50)) + '*' + cast(cab.ANO AS VARCHAR(20)) + '*' + CAST(cab.NNUMDOC as varchar(10)))=u_KApps_DossierLin.stampbo) 
-              and ((cast(lin.NNUMDOC AS VARCHAR(20)) + '*' + CAST(lin.numlinha as varchar(15))) = u_KApps_DossierLin.Stampbi))                                         as 'QuantityPicked',
+              select isnull(sum(u_Kapps_DossierLin.Qty2),0) 
+              from u_Kapps_DossierLin (NOLOCK) 
+              where u_Kapps_DossierLin.Status = 'A' 
+              and u_Kapps_DossierLin.Integrada = 'N' 
+              and ((cast(cab.SERIE AS VARCHAR(10)) + '*' + cast(cab.TPDOC AS VARCHAR(50)) + '*' + cast(cab.ANO AS VARCHAR(20)) + '*' + CAST(cab.NNUMDOC as varchar(10)))=u_Kapps_DossierLin.stampbo) 
+              and ((cast(lin.NNUMDOC AS VARCHAR(20)) + '*' + CAST(lin.numlinha as varchar(15))) = u_Kapps_DossierLin.Stampbi))                                         as 'QuantityPicked',
 Art.UNBASE AS 'BaseUnit',
 lin.UNIDADE as 'BusyUnit',
 CASE WHEN Art.UNBASE = Lin.Unidade THEN 1 ELSE lin.Factor END AS 'ConversionFator',
@@ -300,8 +302,8 @@ cab.NNUMDOC as 'NDC',
 from DOCGCCAB cab (NOLOCK)
 join Clientes cli (NOLOCK) ON cli.CODIGO = cab.TERCEIRO
 join TPDOC tdoc (NOLOCK) on tdoc.CODIGO = cab.TPDOC
-left join u_KApps_DossierLin (NOLOCK) on (u_KApps_DossierLin.StampBo = (cast(cab.SERIE AS VARCHAR(20)) + '*' + cast(cab.TPDOC AS VARCHAR(50)) + '*' + cast(cab.ANO AS VARCHAR(20)) + '*' + CAST(cab.NNUMDOC as varchar(10)))) 
-and u_KApps_DossierLin.Status <> 'X' and u_KApps_DossierLin.Integrada = 'N' 
+left join u_Kapps_DossierLin (NOLOCK) on (u_Kapps_DossierLin.StampBo = (cast(cab.SERIE AS VARCHAR(20)) + '*' + cast(cab.TPDOC AS VARCHAR(50)) + '*' + cast(cab.ANO AS VARCHAR(20)) + '*' + CAST(cab.NNUMDOC as varchar(10)))) 
+and u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N' 
 where cab.aprovado = 1 and cab.TPFSTC = 0
 GO
 
@@ -319,19 +321,19 @@ Lin.DESCR as 'Description',
 ((Lin.QTDORIG / Lin.FACTOR) - (Lin.QUANT/ Lin.FACTOR)) AS 'QuantitySatisfied', 
 ((Lin.QTDORIG / Lin.FACTOR) - ((Lin.QTDORIG / Lin.FACTOR) - (Lin.QUANT/ Lin.FACTOR))) - 
        (
-       select isnull(sum(u_KApps_DossierLin.Qty2),0) 
-       from u_KApps_DossierLin (NOLOCK) 
-       where u_KApps_DossierLin.Status <> 'X' 
-       and u_KApps_DossierLin.Integrada = 'N' 
-       and ((cast(cab.SERIE AS VARCHAR(10)) + '*' + cast(cab.TPDOC AS VARCHAR(50)) + '*' + cast(cab.ANO AS VARCHAR(20)) + '*' + CAST(cab.NNUMDOC as varchar(10)))=u_KApps_DossierLin.stampbo) 
-       and ((cast(lin.NNUMDOC AS VARCHAR(20)) + '*' + CAST(lin.numlinha as varchar(15))) = u_KApps_DossierLin.Stampbi))                                         as 'QuantityPending',
+       select isnull(sum(u_Kapps_DossierLin.Qty2),0) 
+       from u_Kapps_DossierLin (NOLOCK) 
+       where u_Kapps_DossierLin.Status = 'A' 
+       and u_Kapps_DossierLin.Integrada = 'N' 
+       and ((cast(cab.SERIE AS VARCHAR(10)) + '*' + cast(cab.TPDOC AS VARCHAR(50)) + '*' + cast(cab.ANO AS VARCHAR(20)) + '*' + CAST(cab.NNUMDOC as varchar(10)))=u_Kapps_DossierLin.stampbo) 
+       and ((cast(lin.NNUMDOC AS VARCHAR(20)) + '*' + CAST(lin.numlinha as varchar(15))) = u_Kapps_DossierLin.Stampbi))                                         as 'QuantityPending',
               (
-              select isnull(sum(u_KApps_DossierLin.Qty2),0) 
-              from u_KApps_DossierLin (NOLOCK) 
-              where u_KApps_DossierLin.Status <> 'X' 
-              and u_KApps_DossierLin.Integrada = 'N' 
-              and ((cast(cab.SERIE AS VARCHAR(10)) + '*' + cast(cab.TPDOC AS VARCHAR(50)) + '*' + cast(cab.ANO AS VARCHAR(20)) + '*' + CAST(cab.NNUMDOC as varchar(10)))=u_KApps_DossierLin.stampbo) 
-              and ((cast(lin.NNUMDOC AS VARCHAR(20)) + '*' + CAST(lin.numlinha as varchar(15))) = u_KApps_DossierLin.Stampbi))                                         as 'QuantityPicked',
+              select isnull(sum(u_Kapps_DossierLin.Qty2),0) 
+              from u_Kapps_DossierLin (NOLOCK) 
+              where u_Kapps_DossierLin.Status = 'A' 
+              and u_Kapps_DossierLin.Integrada = 'N' 
+              and ((cast(cab.SERIE AS VARCHAR(10)) + '*' + cast(cab.TPDOC AS VARCHAR(50)) + '*' + cast(cab.ANO AS VARCHAR(20)) + '*' + CAST(cab.NNUMDOC as varchar(10)))=u_Kapps_DossierLin.stampbo) 
+              and ((cast(lin.NNUMDOC AS VARCHAR(20)) + '*' + CAST(lin.numlinha as varchar(15))) = u_Kapps_DossierLin.Stampbi))                                         as 'QuantityPicked',
 Art.UNBASE AS 'BaseUnit',
 lin.UNIDADE as 'BusyUnit',
 CASE WHEN Art.UNBASE = Lin.Unidade THEN 1 ELSE lin.Factor END AS 'ConversionFator',
@@ -355,6 +357,9 @@ cab.NNUMDOC as 'NDC',
 '' as 'Filter1','' as 'Filter2','' as 'Filter3','' as 'Filter4','' as 'Filter5'
 ,'' as Location											--A Confirmar
 ,'' as Lot												--A Confirmar
+,'' as PalletType
+,0 as PalletMaxUnits
+
 FROM DOCGCLIN lin (NOLOCK) 
 JOIN DOCGCCAB cab (NOLOCK) ON cab.SERIE = lin.SERIE and cab.TPDOC = lin.TPDOCUM  and cab.ANO = lin.ANO and cab.NNUMDOC = lin.NNUMDOC
 LEFT JOIN Artigos Art (NOLOCK) ON Art.CODIGO = lin.Artigo
@@ -396,8 +401,8 @@ cab.NNUMDOC as 'NDC',
 from DOCGCCAB cab (NOLOCK)
 join FORNEC forn (NOLOCK) ON forn.CODIGO = cab.TERCEIRO
 join TPDOC tdoc (NOLOCK) on tdoc.CODIGO = cab.TPDOC
-left join u_KApps_DossierLin (NOLOCK) on (u_KApps_DossierLin.StampBo = (cast(cab.SERIE AS VARCHAR(20)) + '*' + cast(cab.TPDOC AS VARCHAR(50)) + '*' + cast(cab.ANO AS VARCHAR(20)) + '*' + CAST(cab.NNUMDOC as varchar(10)))) 
-and u_KApps_DossierLin.Status <> 'X' and u_KApps_DossierLin.Integrada = 'N' 
+left join u_Kapps_DossierLin (NOLOCK) on (u_Kapps_DossierLin.StampBo = (cast(cab.SERIE AS VARCHAR(20)) + '*' + cast(cab.TPDOC AS VARCHAR(50)) + '*' + cast(cab.ANO AS VARCHAR(20)) + '*' + CAST(cab.NNUMDOC as varchar(10)))) 
+and u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N' 
 where cab.TPFSTC = 0
 GO
 
@@ -415,12 +420,12 @@ lin.DESCR AS 'Description',
 ((Lin.QTDORIG / Lin.FACTOR) - (Lin.QUANT/ Lin.FACTOR)) AS 'QuantitySatisfied', 
 ((Lin.QTDORIG / Lin.FACTOR) - ((Lin.QTDORIG / Lin.FACTOR) - (Lin.QUANT/ Lin.FACTOR))) - 
 (SELECT ISNULL(SUM(Qty2), 0) 
-FROM dbo.u_KApps_DossierLin WITH (NOLOCK)
-WHERE (Status <> 'X') AND (Integrada = 'N') 
+FROM dbo.u_Kapps_DossierLin WITH (NOLOCK)
+WHERE (Status = 'A') AND (Integrada = 'N') 
 AND (CAST(cab.SERIE AS VARCHAR(10)) + '*' + CAST(cab.TPDOC AS VARCHAR(50)) + '*' + CAST(cab.ANO AS VARCHAR(20)) + '*' + CAST(cab.NNUMDOC AS varchar(10)) = StampBo) 
 AND (CAST(lin.NNUMDOC AS VARCHAR(20)) + '*' + CAST(lin.NUMLINHA AS varchar(15)) = StampBi)) AS 'QuantityPending',
-(SELECT ISNULL(SUM(Qty2), 0) FROM dbo.u_KApps_DossierLin WITH (NOLOCK)
-WHERE (Status <> 'X') AND (Integrada = 'N') 
+(SELECT ISNULL(SUM(Qty2), 0) FROM dbo.u_Kapps_DossierLin WITH (NOLOCK)
+WHERE (Status = 'A') AND (Integrada = 'N') 
 AND (CAST(cab.SERIE AS VARCHAR(10)) + '*' + CAST(cab.TPDOC AS VARCHAR(50)) + '*' + CAST(cab.ANO AS VARCHAR(20)) + '*' + CAST(cab.NNUMDOC AS varchar(10)) = StampBo) 
 AND (CAST(lin.NNUMDOC AS VARCHAR(20)) + '*' + CAST(lin.NUMLINHA AS varchar(15)) = StampBi)) AS QuantityPicked, Art.UNBASE AS BaseUnit, lin.UNIDADE AS 'BusyUnit', 
 CASE WHEN Art.UNBASE = Lin.Unidade THEN 1 ELSE lin.Factor END AS 'ConversionFator', 
@@ -481,6 +486,7 @@ select
 , '1' AS LocActiva
 , cast(1 as bit) AS Checkdigit
 , cast(0 as int) AS LocationType						-- 1(Localizações do tipo Receção), 2(Localizações do tipo expedição)
+WHERE 1 = 0
 GO
 
 
@@ -610,6 +616,7 @@ CREATE view [dbo].[v_Kapps_RestrictedUsersZones] as
 select 
 '' AS UserName,
 '' AS ZoneLocation
+WHERE 1 = 0
 GO
 
 
@@ -618,27 +625,8 @@ IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'[dbo].[v_Kapps
 DROP view [dbo].[v_Kapps_StockBreakReasons]
 GO
 CREATE view [dbo].[v_Kapps_StockBreakReasons] as 
-select 'Furto' AS Reason
-UNION
-select 'Vandalismo' AS Reason
-UNION
-select 'Incêndio' AS Reason
-UNION
-select 'Danos por águas' AS Reason
-UNION
-select 'Tempestades' AS Reason
-UNION
-select 'Falhas estruturais' AS Reason
-UNION
-select 'Fora de Validade' AS Reason
-UNION
-select 'Consumo interno' AS Reason
-UNION
-select 'Erros na expedição' AS Reason
-UNION
-select 'Devoluções de clientes'  AS Reason
-UNION
-select 'Mau acondicionamento'  AS Reason
+select ReasonID, ReasonDescription, ReasonType
+FROM u_Kapps_Reasons
 GO
 
 
@@ -654,6 +642,7 @@ select
 '' AS Location,
 '' AS Family,
 '' AS Article
+WHERE 1 = 0
 GO
 
 
@@ -671,9 +660,10 @@ select '' as NAME, '' as Code
 ,'' As Area
 ,'' As Country
 ,'' As Phone
-,'' as Latitude
-,'' as Longitude
+,CAST(0 as numeric(10,6)) as Latitude
+,CAST(0 as numeric(10,6)) as Longitude
 ,'' as OBS
+WHERE 1 = 0
 GO
 
 
@@ -686,7 +676,7 @@ select h.SSCC as HeaderSSCC
 , d.SSCC as DetailSSCC
 , h.PackId
 , d.Ref AS Article
-, d.Quantity
+, d.Quantity2 as Quantity
 , d.Quantity2UM as Unit
 , d.Lot
 , d.ExpirationDate
@@ -706,6 +696,7 @@ select h.SSCC as HeaderSSCC
 , h.CurrentWarehouse
 , h.CurrentLocation
 , h.PackStatus
+, h.PackType
 FROM u_Kapps_PackingDetails d
 LEFT JOIN u_Kapps_PackingHeader h on h.PackId=d.PackID
 LEFT JOIN u_Kapps_DossierLin lin on lin.StampLin=d.StampLin
@@ -750,8 +741,8 @@ cab.NNUMDOC as 'NDC',
 from DOCGCCAB cab (NOLOCK)
 join Clientes cli (NOLOCK) ON cli.CODIGO = cab.TERCEIRO
 join TPDOC tdoc (NOLOCK) on tdoc.CODIGO = cab.TPDOC
-left join u_KApps_DossierLin (NOLOCK) on (u_KApps_DossierLin.StampBo = (cast(cab.SERIE AS VARCHAR(20)) + '*' + cast(cab.TPDOC AS VARCHAR(50)) + '*' + cast(cab.ANO AS VARCHAR(20)) + '*' + CAST(cab.NNUMDOC as varchar(10)))) 
-and u_KApps_DossierLin.Status <> 'X' and u_KApps_DossierLin.Integrada = 'N' 
+left join u_Kapps_DossierLin (NOLOCK) on (u_Kapps_DossierLin.StampBo = (cast(cab.SERIE AS VARCHAR(20)) + '*' + cast(cab.TPDOC AS VARCHAR(50)) + '*' + cast(cab.ANO AS VARCHAR(20)) + '*' + CAST(cab.NNUMDOC as varchar(10)))) 
+and u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N' 
 where cab.aprovado = 1 and cab.TPFSTC = 0
 GO
 
@@ -769,19 +760,19 @@ Lin.DESCR as 'Description',
 ((Lin.QTDORIG / Lin.FACTOR) - (Lin.QUANT/ Lin.FACTOR)) AS 'QuantitySatisfied', 
 ((Lin.QTDORIG / Lin.FACTOR) - ((Lin.QTDORIG / Lin.FACTOR) - (Lin.QUANT/ Lin.FACTOR))) -  
        (
-       select isnull(sum(u_KApps_DossierLin.Qty2),0) 
-       from u_KApps_DossierLin (NOLOCK) 
-       where u_KApps_DossierLin.Status <> 'X' 
-       and u_KApps_DossierLin.Integrada = 'N' 
-       and ((cast(cab.SERIE AS VARCHAR(10)) + '*' + cast(cab.TPDOC AS VARCHAR(50)) + '*' + cast(cab.ANO AS VARCHAR(20)) + '*' + CAST(cab.NNUMDOC as varchar(10)))=u_KApps_DossierLin.stampbo) 
-       and ((cast(lin.NNUMDOC AS VARCHAR(20)) + '*' + CAST(lin.numlinha as varchar(15))) = u_KApps_DossierLin.Stampbi))                                         as 'QuantityPending',
+       select isnull(sum(u_Kapps_DossierLin.Qty2),0) 
+       from u_Kapps_DossierLin (NOLOCK) 
+       where u_Kapps_DossierLin.Status = 'A' 
+       and u_Kapps_DossierLin.Integrada = 'N' 
+       and ((cast(cab.SERIE AS VARCHAR(10)) + '*' + cast(cab.TPDOC AS VARCHAR(50)) + '*' + cast(cab.ANO AS VARCHAR(20)) + '*' + CAST(cab.NNUMDOC as varchar(10)))=u_Kapps_DossierLin.stampbo) 
+       and ((cast(lin.NNUMDOC AS VARCHAR(20)) + '*' + CAST(lin.numlinha as varchar(15))) = u_Kapps_DossierLin.Stampbi))                                         as 'QuantityPending',
               (
-              select isnull(sum(u_KApps_DossierLin.Qty2),0) 
-              from u_KApps_DossierLin (NOLOCK) 
-              where u_KApps_DossierLin.Status <> 'X' 
-              and u_KApps_DossierLin.Integrada = 'N' 
-              and ((cast(cab.SERIE AS VARCHAR(10)) + '*' + cast(cab.TPDOC AS VARCHAR(50)) + '*' + cast(cab.ANO AS VARCHAR(20)) + '*' + CAST(cab.NNUMDOC as varchar(10)))=u_KApps_DossierLin.stampbo) 
-              and ((cast(lin.NNUMDOC AS VARCHAR(20)) + '*' + CAST(lin.numlinha as varchar(15))) = u_KApps_DossierLin.Stampbi))                                         as 'QuantityPicked',
+              select isnull(sum(u_Kapps_DossierLin.Qty2),0) 
+              from u_Kapps_DossierLin (NOLOCK) 
+              where u_Kapps_DossierLin.Status = 'A' 
+              and u_Kapps_DossierLin.Integrada = 'N' 
+              and ((cast(cab.SERIE AS VARCHAR(10)) + '*' + cast(cab.TPDOC AS VARCHAR(50)) + '*' + cast(cab.ANO AS VARCHAR(20)) + '*' + CAST(cab.NNUMDOC as varchar(10)))=u_Kapps_DossierLin.stampbo) 
+              and ((cast(lin.NNUMDOC AS VARCHAR(20)) + '*' + CAST(lin.numlinha as varchar(15))) = u_Kapps_DossierLin.Stampbi))                                         as 'QuantityPicked',
 Art.UNBASE AS 'BaseUnit',
 lin.UNIDADE as 'BusyUnit',
 CASE WHEN Art.UNBASE = Lin.Unidade THEN 1 ELSE lin.Factor END AS 'ConversionFator',
@@ -813,3 +804,13 @@ LEFT JOIN Artigos Art (NOLOCK) ON Art.CODIGO = lin.Artigo
 where cab.aprovado = 1 and cab.TPFSTC = 0
 GO
 
+
+
+IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'[dbo].[v_Kapps_Stock_Status]'))
+DROP view [dbo].[v_Kapps_Stock_Status]
+GO
+CREATE view [dbo].[v_Kapps_Stock_Status] as 
+select '' as Code
+, '' AS Description
+WHERE 1=0
+GO

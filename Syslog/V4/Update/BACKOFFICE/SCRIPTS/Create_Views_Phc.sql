@@ -2,7 +2,7 @@ IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'[dbo].[v_Kapps
 DROP view [dbo].[v_Kapps_Customers]
 GO
 CREATE view [dbo].[v_Kapps_Customers] as 
-select cl.Nome as NAME, CASE WHEN cl.ESTAB > 0 then cast(cl.no as varchar(50)) + '.' + cast(cl.ESTAB  as varchar(50)) else cast(cl.no as varchar(50)) end as Code
+select cl.Nome as Name, CASE WHEN cl.estab > 0 then cast(cl.no as varchar(50)) + '.' + cast(cl.estab  as varchar(50)) else cast(cl.no as varchar(50)) end as Code
 , '' AS 'NameByLabel', '' AS 'AdressByLabel'
 , cl.ncont AS NIF
 , CAST('0' as varchar(1)) as RuleForSSCC	-- Regra a usar na criação de SSCC no packing 0-Um SSCC por caixa	1-Um SSCC por cada combinação de Artigo/Lote/Validade
@@ -12,10 +12,11 @@ select cl.Nome as NAME, CASE WHEN cl.ESTAB > 0 then cast(cl.no as varchar(50)) +
 ,local As Area
 ,Case when pais = '1' Then 'Nacional' Else Case when pais = '2' Then 'U.E.' Else 'Outros' End End  As Country
 ,telefone As Phone
-,'' as Latitude
-,'' as Longitude
+,CAST(0 as numeric(10,6)) as Latitude
+,CAST(0 as numeric(10,6)) as Longitude
 ,Obs as OBS
 , 0 AS InternalCustomer						-- 0 Externo, 1 Interno
+, Case When cl.nome2>'' Then cl.nome2 Else cl.Nome End  As ShortName
 from cl (NOLOCK)
 where cl.inactivo = 0
 GO
@@ -26,7 +27,7 @@ IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'[dbo].[v_Kapps
 DROP view [dbo].[v_Kapps_Suppliers]
 GO
 CREATE view [dbo].[v_Kapps_Suppliers] as 
-select forn.nome as NAME, CASE WHEN forn.ESTAB > 0 then cast(forn.no as varchar(50)) + '.' + cast(forn.ESTAB  as varchar(50)) else cast(forn.no as varchar(50)) end as Code
+select forn.nome as Name, CASE WHEN forn.estab > 0 then cast(forn.no as varchar(50)) + '.' + cast(forn.estab  as varchar(50)) else cast(forn.no as varchar(50)) end as Code
 , forn.ncont AS NIF
 ,morada As Adress
 ,'' As Adress1
@@ -93,8 +94,9 @@ art.unidade as 'BaseUnit', art.familia as 'Family', CASE WHEN art.STNS = 1 THEN 
 , 0 as LoteControlOut									-- 0-Manual 1-FIFO, 2-FEFO, 3-LIFO
 , 0 as UseExpirationDate
 , CAST(0 as bit) as UseWeight							-- (1-Sim) (0-Não)
-, 0 AS StoreInNrDays
-, 0 AS StoreOutNrDays
+, 0 AS StoreInNrDays									-- Nº de dias minimo de validade na receção (excepto se existir regra a contrariar em [Validades mínimas])
+, 0 AS StoreOutNrDays									-- Nº de dias minimo de validade na expedição (excepto se existir regra a contrariar em [Validades mínimas])
+, CAST(0 as int) AS BoxMaxQuantity
 from st art (NOLOCK)
 where art.inactivo = 0
 GO
@@ -109,10 +111,6 @@ select bc.ref as Code, bc.codigo as Barcode, art.Unidade as Unit, bc.qtt as Quan
 from bc (NOLOCK)
 JOIN st art (NOLOCK) on art.Ref = bc.ref
 where art.inactivo = 0
-UNION ALL
-SELECT art.ref as Code, art.codigo as Barcode, art.unidade as Unit, 1 as Quantity
-FROM st art WITH(NOLOCK)
-WHERE art.inactivo = 0 AND art.codigo NOT LIKE ''
 GO
 
 
@@ -121,7 +119,7 @@ IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'[dbo].[v_Kapps
 DROP view [dbo].[v_Kapps_Stock]
 GO
 CREATE view [dbo].[v_Kapps_Stock] as 
-select sa.ref as Article, sa.armazem as Warehouse, case when ISNULL(sal.lote,'')='' then sa.stock else sal.stock end as Stock
+select sa.ref as Article, CAST(sa.armazem as VARCHAR(5)) as Warehouse, case when ISNULL(sal.lote,'')='' then sa.stock else sal.stock end as Stock
 , '' as Location
 , isnull(sal.lote,'') AS Lote
 , case when ISNULL(sal.lote,'')='' then sa.stock-sa.rescli else sal.stock end as AvailableStock
@@ -137,13 +135,12 @@ IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'[dbo].[v_Kapps
 DROP view [dbo].[v_Kapps_Lots]
 GO
 CREATE view [dbo].[v_Kapps_Lots] as 
-select am.Lote as Lot, am.ref as Article, am.Armazem as Warehouse, lot.Validade as ExpirationDate, am.Stock as Stock
-, '' AS Location
+select lot.Lote as Lot, lot.ref as Article, lot.Validade as ExpirationDate
 , lot.Data AS ProductionDate
-from sal am (NOLOCK)
-join st art (NOLOCK) on art.ref = am.ref
-left join se lot (NOLOCK) on am.Lote = lot.Lote and am.ref = lot.ref
-where art.inactivo = 0 and lot.inactivo=0
+, CASE WHEN lot.inactivo=1 then 0 ELSE 1 END as Actif
+from se lot (NOLOCK)
+join st art (NOLOCK) on art.ref = lot.ref
+where art.inactivo = 0
 GO
 
 
@@ -208,7 +205,7 @@ bo.obrano as 'NDC',
 ,bo2.descar as DeliveryCode
 ,bo3.barcode as Barcode
 from bo  (NOLOCK) 
-left join u_KApps_DossierLin (NOLOCK) on u_KApps_DossierLin.StampBo = bo.bostamp and u_KApps_DossierLin.Status <> 'X' and u_KApps_DossierLin.Integrada = 'N' 
+left join u_Kapps_DossierLin (NOLOCK) on u_Kapps_DossierLin.StampBo = bo.bostamp and u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N' 
 left join bo2 on bo.bostamp=bo2.bo2stamp 
 left join bo3 on bo3.bo3stamp=bo.bostamp
 where bo.fechada=0
@@ -226,8 +223,8 @@ bi.ref as 'Article',
 bi.design as 'Description', 
 bi.qtt as 'Quantity',
 bi.qtt2 as 'QuantitySatisfied',
-bi.qtt-(bi.qtt2 + (select ISNULL(sum(u_KApps_DossierLin.Qty2),0) from u_KApps_DossierLin (NOLOCK)  where u_KApps_DossierLin.Status <> 'X' and u_KApps_DossierLin.Integrada = 'N'  and  bi.bistamp=u_KApps_DossierLin.stampbi)) as 'QuantityPending',
-(select ISNULL(sum(u_KApps_DossierLin.Qty2),0) from u_KApps_DossierLin (NOLOCK)  where u_KApps_DossierLin.Status <> 'X' and u_KApps_DossierLin.Integrada = 'N'  and  bi.bistamp=u_KApps_DossierLin.stampbi) as 'QuantityPicked', 
+bi.qtt-(bi.qtt2 + (select ISNULL(sum(u_Kapps_DossierLin.Qty2),0) from u_Kapps_DossierLin (NOLOCK)  where u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N'  and  bi.bistamp=u_Kapps_DossierLin.stampbi)) as 'QuantityPending',
+(select ISNULL(sum(u_Kapps_DossierLin.Qty2),0) from u_Kapps_DossierLin (NOLOCK)  where u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N'  and  bi.bistamp=u_Kapps_DossierLin.stampbi) as 'QuantityPicked', 
 bi.unidade AS 'BaseUnit',
 bi.unidade as 'BusyUnit', 
 1 AS 'ConversionFator',
@@ -292,7 +289,7 @@ bo.obrano as 'NDC',
 ,bo2.descar AS DeliveryCode
 ,bo3.barcode as Barcode
 from bo  (NOLOCK) 
-left join u_KApps_DossierLin (NOLOCK) on u_KApps_DossierLin.StampBo = bo.bostamp and u_KApps_DossierLin.Status <> 'X' and u_KApps_DossierLin.Integrada = 'N'
+left join u_Kapps_DossierLin (NOLOCK) on u_Kapps_DossierLin.StampBo = bo.bostamp and u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N'
 left join bo2 on bo.bostamp=bo2.bo2stamp 
 left join bo3 on bo3.bo3stamp=bo.bostamp
 where bo.fechada=0
@@ -310,8 +307,8 @@ bi.ref as 'Article',
 bi.design as 'Description', 
 bi.qtt as 'Quantity',
 bi.qtt2 as 'QuantitySatisfied',
-bi.qtt-(bi.qtt2 + (select ISNULL(sum(u_KApps_DossierLin.Qty2),0) from u_KApps_DossierLin (NOLOCK)  where u_KApps_DossierLin.Status <> 'X' and u_KApps_DossierLin.Integrada = 'N' and  bi.bistamp=u_KApps_DossierLin.stampbi)) as 'QuantityPending',
-(select ISNULL(sum(u_KApps_DossierLin.Qty2),0) from u_KApps_DossierLin (NOLOCK)  where u_KApps_DossierLin.Status <> 'X' and u_KApps_DossierLin.Integrada = 'N' and  bi.bistamp=u_KApps_DossierLin.stampbi) as 'QuantityPicked', 
+bi.qtt-(bi.qtt2 + (select ISNULL(sum(u_Kapps_DossierLin.Qty2),0) from u_Kapps_DossierLin (NOLOCK)  where u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N' and  bi.bistamp=u_Kapps_DossierLin.stampbi)) as 'QuantityPending',
+(select ISNULL(sum(u_Kapps_DossierLin.Qty2),0) from u_Kapps_DossierLin (NOLOCK)  where u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N' and  bi.bistamp=u_Kapps_DossierLin.stampbi) as 'QuantityPicked', 
 bi.unidade AS 'BaseUnit',
 bi.unidade as 'BusyUnit', 
 1 AS 'ConversionFator',
@@ -335,8 +332,10 @@ bo.obrano as 'NDC',
 '' as 'Filter1','' as 'Filter2','' as 'Filter3','' as 'Filter4','' as 'Filter5'
 , '' AS Location
 , bi.lote AS Lot
-  from bi (NOLOCK) 
-  JOIN bo (NOLOCK) ON bo.bostamp = bi.bostamp
+, '' as PalletType
+, 0 as PalletMaxUnits
+from bi (NOLOCK) 
+JOIN bo (NOLOCK) ON bo.bostamp = bi.bostamp
 where bo.fechada=0
 GO
 
@@ -373,7 +372,7 @@ bo.obrano as 'NDC',
 '' as ExternalDoc
 ,bo3.barcode as Barcode
 from bo  (NOLOCK) 
-left join u_KApps_DossierLin (NOLOCK)  on u_KApps_DossierLin.StampBo = bo.bostamp and u_KApps_DossierLin.Status <> 'X' and u_KApps_DossierLin.Integrada = 'N'
+left join u_Kapps_DossierLin (NOLOCK)  on u_Kapps_DossierLin.StampBo = bo.bostamp and u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N'
 left join bo3 on bo3.bo3stamp=bo.bostamp
 where bo.fechada=0
 GO
@@ -390,8 +389,8 @@ bi.ref as 'Article',
 bi.design  as 'Description', 
 bi.qtt  as 'Quantity',
 bi.qtt2 as 'QuantitySatisfied',
-bi.qtt-bi.qtt2-(select ISNULL(sum(u_KApps_DossierLin.Qty2),0) from u_KApps_DossierLin (NOLOCK)  where u_KApps_DossierLin.Status <> 'X' and u_KApps_DossierLin.Integrada = 'N' and bi.bistamp=u_KApps_DossierLin.stampbi) as 'QuantityPending',
-(select ISNULL(sum(u_KApps_DossierLin.Qty2),0) from u_KApps_DossierLin (NOLOCK) where u_KApps_DossierLin.Status <> 'X' and u_KApps_DossierLin.Integrada = 'N' and bi.bistamp=u_KApps_DossierLin.stampbi)  as 'QuantityPicked', 
+bi.qtt-bi.qtt2-(select ISNULL(sum(u_Kapps_DossierLin.Qty2),0) from u_Kapps_DossierLin (NOLOCK)  where u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N' and bi.bistamp=u_Kapps_DossierLin.stampbi) as 'QuantityPending',
+(select ISNULL(sum(u_Kapps_DossierLin.Qty2),0) from u_Kapps_DossierLin (NOLOCK) where u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N' and bi.bistamp=u_Kapps_DossierLin.stampbi)  as 'QuantityPicked', 
 bi.unidade AS 'BaseUnit',
 bi.unidade as 'BusyUnit',
 1 AS 'ConversionFator',
@@ -445,6 +444,7 @@ select
 , 1 AS LocActiva
 , cast(1 as bit) AS Checkdigit
 , cast(0 as int) AS LocationType						-- 1(Localizações do tipo Receção), 2(Localizações do tipo expedição)
+WHERE 1 = 0
 GO
 
 
@@ -553,7 +553,7 @@ GO
 CREATE view [dbo].[v_Kapps_Customers_DeliveryLocations] as 
 select 
 mor.szadrsdesc AS DeliveryCode, 						--mor.szadrsstamp ???, -- confirmar cli.Nome no BO
-CASE WHEN cli.ESTAB > 0 then cast(cli.no as varchar(50)) + '.' + cast(cli.ESTAB  as varchar(50)) else cast(cli.no as varchar(50)) end AS ClientCode,
+CASE WHEN cli.estab > 0 then cast(cli.no as varchar(50)) + '.' + cast(cli.estab  as varchar(50)) else cast(cli.no as varchar(50)) end AS ClientCode,
 cli.Nome AS Name,
 mor.Morada AS Address1,
 '' AS Address2,
@@ -577,6 +577,7 @@ CREATE view [dbo].[v_Kapps_RestrictedUsersZones] as
 select 
 '' AS UserName,
 '' AS ZoneLocation
+WHERE 1 = 0
 GO
 
 
@@ -585,27 +586,8 @@ IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'[dbo].[v_Kapps
 DROP view [dbo].[v_Kapps_StockBreakReasons]
 GO
 CREATE view [dbo].[v_Kapps_StockBreakReasons] as 
-select 'Furto' AS Reason
-UNION
-select 'Vandalismo' AS Reason
-UNION
-select 'Incêndio' AS Reason
-UNION
-select 'Danos por águas' AS Reason
-UNION
-select 'Tempestades' AS Reason
-UNION
-select 'Falhas estruturais' AS Reason
-UNION
-select 'Fora de Validade' AS Reason
-UNION
-select 'Consumo interno' AS Reason
-UNION
-select 'Erros na expedição' AS Reason
-UNION
-select 'Devoluções de clientes'  AS Reason
-UNION
-select 'Mau acondicionamento'  AS Reason
+select ReasonID, ReasonDescription, ReasonType
+FROM u_Kapps_Reasons
 GO
 
 
@@ -621,6 +603,7 @@ select
 '' AS Location,
 '' AS Family,
 '' AS Article
+WHERE 1 = 0
 GO
 
 
@@ -629,7 +612,7 @@ IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'[dbo].[v_Kapps
 DROP view [dbo].[v_Kapps_Entities]
 GO
 CREATE view [dbo].[v_Kapps_Entities] as 
-select nome as NAME, cast(no as varchar(50)) as Code
+select nome as Name, cast(no as varchar(50)) as Code
 , ncont AS NIF
 , 'AG' as EntityType
 ,'' As Adress
@@ -638,8 +621,8 @@ select nome as NAME, cast(no as varchar(50)) as Code
 ,'' As Area
 ,'' As Country
 ,'' As Phone
-,'' as Latitude
-,'' as Longitude
+,latitude as Latitude
+,longitude as Longitude
 ,'' as OBS
 from AG (NOLOCK)
 Where ag.inactivo=0
@@ -655,7 +638,7 @@ select h.SSCC as HeaderSSCC
 , d.SSCC as DetailSSCC
 , h.PackId
 , d.Ref AS Article
-, d.Quantity
+, d.Quantity2 as Quantity
 , d.Quantity2UM as Unit
 , d.Lot
 , d.ExpirationDate
@@ -675,6 +658,7 @@ select h.SSCC as HeaderSSCC
 , h.CurrentWarehouse
 , h.CurrentLocation
 , h.PackStatus
+, h.PackType
 FROM u_Kapps_PackingDetails d
 LEFT JOIN u_Kapps_PackingHeader h on h.PackId=d.PackID
 LEFT JOIN u_Kapps_DossierLin lin on lin.StampLin=d.StampLin
@@ -717,7 +701,7 @@ bo.obrano as 'NDC',
 ,'' as DestinationWarehouse
 ,bo3.barcode as Barcode
 from bo  (NOLOCK) 
-left join u_KApps_DossierLin (NOLOCK) on u_KApps_DossierLin.StampBo = bo.bostamp and u_KApps_DossierLin.Status <> 'X' and u_KApps_DossierLin.Integrada = 'N' 
+left join u_Kapps_DossierLin (NOLOCK) on u_Kapps_DossierLin.StampBo = bo.bostamp and u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N' 
 left join bo2 on bo.bostamp=bo2.bo2stamp 
 left join bo3 on bo3.bo3stamp=bo.bostamp
 where bo.fechada=0
@@ -735,8 +719,8 @@ bi.ref as 'Article',
 bi.design as 'Description', 
 bi.qtt as 'Quantity',
 bi.qtt2 as 'QuantitySatisfied',
-bi.qtt-(bi.qtt2 + (select ISNULL(sum(u_KApps_DossierLin.Qty2),0) from u_KApps_DossierLin (NOLOCK)  where u_KApps_DossierLin.Status <> 'X' and u_KApps_DossierLin.Integrada = 'N'  and  bi.bistamp=u_KApps_DossierLin.stampbi)) as 'QuantityPending',
-(select ISNULL(sum(u_KApps_DossierLin.Qty2),0) from u_KApps_DossierLin (NOLOCK)  where u_KApps_DossierLin.Status <> 'X' and u_KApps_DossierLin.Integrada = 'N'  and  bi.bistamp=u_KApps_DossierLin.stampbi) as 'QuantityPicked', 
+bi.qtt-(bi.qtt2 + (select ISNULL(sum(u_Kapps_DossierLin.Qty2),0) from u_Kapps_DossierLin (NOLOCK)  where u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N'  and  bi.bistamp=u_Kapps_DossierLin.stampbi)) as 'QuantityPending',
+(select ISNULL(sum(u_Kapps_DossierLin.Qty2),0) from u_Kapps_DossierLin (NOLOCK)  where u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N'  and  bi.bistamp=u_Kapps_DossierLin.stampbi) as 'QuantityPicked', 
 bi.unidade as 'BaseUnit',
 bi.unidade as 'BusyUnit', 
 1 as 'ConversionFator',
@@ -769,3 +753,101 @@ where bo.fechada=0
 GO
 
 
+
+IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'[dbo].[v_Kapps_PalletTransf_Documents]'))
+DROP view [dbo].[v_Kapps_PalletTransf_Documents]
+GO
+CREATE view [dbo].[v_Kapps_PalletTransf_Documents]
+as 
+select distinct  
+bo.bostamp as 'PickingKey', 
+bo.obrano as 'Number',
+bo.nome as 'CustomerName',
+bo.dataobra as 'Date', 
+CASE WHEN bo.estab > 0 then cast(bo.no as varchar(50)) + '.' + cast(bo.estab as varchar(50)) else cast(bo.no as varchar(50)) end as 'Customer',
+bo.ndos as 'Document', 
+bo.nmdos as 'DocumentName', 
+'' as 'UserCol1',
+'' as 'UserCol2',
+'' as 'UserCol3',
+'' as 'UserCol4',
+'' as 'UserCol5',
+'' as 'UserCol6',
+'' as 'UserCol7',
+'' as 'UserCol8',
+'' as 'UserCol9',
+'' as 'UserCol10',
+CAST(bo.boano as varchar(50)) as 'EXR',
+CAST(bo.ndos as varchar(50)) as 'SEC',
+CAST(bo.ndos  as varchar(50)) as 'TPD',
+bo.obrano as 'NDC',
+'' as 'Filter1','' as 'Filter2','' as 'Filter3','' as 'Filter4','' as 'Filter5'
+,CASE WHEN bo.estab > 0 then cast(bo.no as varchar(50)) + '.' + cast(bo.estab as varchar(50)) else CAST(bo.no as varchar(50)) end as DeliveryCustomer
+,bo2.descar as DeliveryCode
+,bo3.barcode as Barcode
+from bo  (NOLOCK) 
+left join u_Kapps_DossierLin (NOLOCK) on u_Kapps_DossierLin.StampBo = bo.bostamp and u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N' 
+left join bo2 on bo.bostamp=bo2.bo2stamp 
+left join bo3 on bo3.bo3stamp=bo.bostamp
+where bo.fechada=0
+GO
+
+
+
+IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'[dbo].[v_Kapps_PalletTransf_Lines]'))
+DROP view [dbo].[v_Kapps_PalletTransf_Lines]
+GO
+CREATE view [dbo].[v_Kapps_PalletTransf_Lines] as
+Select distinct 
+bi.bistamp as 'PickingLineKey', 
+bi.ref as 'Article', 
+bi.design as 'Description', 
+bi.qtt as 'Quantity',
+bi.qtt2 
+--+ bi.u_qttPalet -- descomentar a linha após ter criado o campo de utilizador
+as 'QuantitySatisfied',
+bi.qtt-(bi.qtt2 
+--+ bi.u_qttPalet -- descomentar a linha após ter criado o campo de utilizador
++ (select ISNULL(sum(u_Kapps_DossierLin.Qty2),0) from u_Kapps_DossierLin (NOLOCK)  where u_Kapps_DossierLin.Status = 'I' and u_Kapps_DossierLin.Integrada = 'N'  and  bi.bistamp=u_Kapps_DossierLin.stampbi)) as 'QuantityPending',
+0 as 'QuantityPicked', 
+bi.unidade as 'BaseUnit',
+bi.unidade as 'BusyUnit', 
+1 as 'ConversionFator',
+bi.armazem as 'Warehouse',  
+bi.bostamp as 'PickingKey',
+bi.lordem as 'OriginalLineNumber',
+'' as UserCol1,
+'' as UserCol2,
+'' as UserCol3,
+'' as UserCol4,
+'' as UserCol5,
+'' as UserCol6,
+'' as UserCol7,
+'' as UserCol8,
+'' as UserCol9,
+'' as UserCol10,
+CAST(bo.boano as varchar(50)) as 'EXR',
+CAST(bo.ndos as varchar(50)) as 'SEC',
+CAST(bo.ndos as varchar(50)) as 'TPD',
+bo.obrano as 'NDC',
+'' as 'Filter1','' as 'Filter2','' as 'Filter3','' as 'Filter4','' as 'Filter5'
+, '' as Location
+, bi.lote as Lot
+, '' as PalletType
+, 0 as PalletMaxUnits
+from bi (NOLOCK) 
+join bo (NOLOCK) ON bo.bostamp = bi.bostamp
+left join bi2 (NOLOCK) ON bi.bistamp = bi2.bi2stamp
+where bo.fechada=0
+GO
+
+
+
+IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'[dbo].[v_Kapps_Stock_Status]'))
+DROP view [dbo].[v_Kapps_Stock_Status]
+GO
+CREATE view [dbo].[v_Kapps_Stock_Status] as 
+select '' as Code
+, '' AS Description
+WHERE 1=0
+GO

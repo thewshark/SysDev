@@ -12,10 +12,11 @@ select cli.Nome as Name, cli.Cliente as Code
 ,Fac_Cploc As Area
 ,CASE WHEN Pais is null then 'PT' else Pais end As Country
 ,Fac_Tel As Phone
-,'' as Latitude
-,'' as Longitude
+,CAST(0 as numeric(10,6)) as Latitude
+,CAST(0 as numeric(10,6)) as Longitude
 ,Notas as OBS
 , 0 AS InternalCustomer						-- 0 Externo, 1 Interno
+, cli.Nome As ShortName
 from Clientes cli (NOLOCK)
 where cli.ClienteAnulado = 0
 GO
@@ -34,8 +35,8 @@ select forn.Nome as Name, forn.Fornecedor as Code
 ,'' As Area
 ,CpLoc As Country
 ,Tel As Phone
-,'' as Latitude
-,'' as Longitude
+,CAST(0 as numeric(10,6)) as Latitude
+,CAST(0 as numeric(10,6)) as Longitude
 ,Notas as OBS
 from Fornecedores forn (NOLOCK)
 GO
@@ -50,8 +51,7 @@ as
 select  DC.Descricao as 'Description', DC.Documento as 'Code', 0 as 'Orders', 0 as 'Sales', 1 as 'Purchase', 0 as 'Internal', 0 as 'Stock', 0 as 'Transfer', 'FL' as 'Entity',1 as 'ValidaStock', 0 AS 'StockBreak','' as DefaultEntity from DocumentosCompra  DC (NOLOCK)
 union all select  DV.Descricao as 'Description', DV.Documento as 'Code', CASE WHEN DV.TipoDocumento = 2 THEN 1 ELSE 0 END  as 'Orders', CASE WHEN DV.TipoDocumento = 4 OR DV.TipoDocumento = 3 THEN 1 ELSE 0 END as 'Sales', 0 as 'Purchase', 0 as 'Internal', 0 as 'Stock', 0 as 'Transfer', 'CL' as 'Entity',1 as 'ValidaStock', 0 AS 'StockBreak','' as DefaultEntity  from DocumentosVenda DV (NOLOCK)
 union all select  Descricao as 'Description', Documento as 'Code', 0 as 'Orders', 0 as 'Sales', 0 as 'Purchase', 1 as 'Internal', 0 as 'Stock', 0 as 'Transfer', CASE WHEN CLIENTES = 1 THEN 'CL' WHEN FORNECEDORES = '1' THEN 'FL' ELSE '' END as 'Entity',1 as 'ValidaStock', 0 AS 'StockBreak','' as DefaultEntity  FROM DocumentosInternos DI (NOLOCK)
---union all select  Descricao as 'Description', Documento as 'Code', 0 as 'Orders', 0 as 'Sales', 0 as 'Purchase', 0 as 'Internal', CASE WHEN DS.TipoDocumento <> 3 THEN 1 ELSE 0 END as 'Stock', CASE WHEN DS.TipoDocumento = 3 THEN 1 ELSE 0 END as 'Transfer', '' as Entity  from DocumentosStk DS (NOLOCK)
-union all select  Descricao as 'Description', Documento as 'Code', 0 as 'Orders', 0 as 'Sales', 0 as 'Purchase', 0 as 'Internal', 0 as 'Stock', 1 as 'Transfer', '' as 'Entity',1 as 'ValidaStock', 0 AS 'StockBreak','' as DefaultEntity  from INV_DOCUMENTOSTRANSFERENCIA DT (NOLOCK) WHERE DT.TIPOTRANSFERENCIA = 0
+union all select  Descricao as 'Description', Documento as 'Code', 0 as 'Orders', 0 as 'Sales', 0 as 'Purchase', 0 as 'Internal', 0 as 'Stock', 1 as 'Transfer', CASE WHEN BensCirculacao=1 and TipoDocVenda<>'' THEN 'CL' ELSE '' END as 'Entity',1 as 'ValidaStock', 0 AS 'StockBreak','' as DefaultEntity  from INV_DOCUMENTOSTRANSFERENCIA DT (NOLOCK) WHERE DT.TIPOTRANSFERENCIA = 0
 GO
 
 
@@ -88,8 +88,9 @@ art.UnidadeBase as 'BaseUnit', art.Familia as 'Family', CASE WHEN art.MovStock =
 	ELSE 0 END as LoteControlOut						-- 0-Manual 1-FIFO, 2-FEFO, 3-LIFO
 , 1 as UseExpirationDate
 , CAST(0 as bit) as UseWeight							-- (1-Sim) (0-Não)
-, 0 AS StoreInNrDays
-, 0 AS StoreOutNrDays
+, 0 AS StoreInNrDays									-- Nº de dias minimo de validade na receção (excepto se existir regra a contrariar em [Validades mínimas])
+, 0 AS StoreOutNrDays									-- Nº de dias minimo de validade na expedição (excepto se existir regra a contrariar em [Validades mínimas])
+, CAST(0 as int) AS BoxMaxQuantity
 from Artigo art (NOLOCK)
 where art.ArtigoAnulado = 0 and art.TratamentoDim<>1
 GO
@@ -100,18 +101,10 @@ IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'[dbo].[v_Kapps
 DROP view [dbo].[v_Kapps_Barcodes]
 GO
 CREATE view [dbo].[v_Kapps_Barcodes] as 
-select cb.Artigo as Code, cb.CodBarras as Barcode, cb.Unidade as Unit,
-ISNULL((select ISNULL(uc.FactorConversao, 1) from UnidadesConversao uc (NOLOCK) WHERE uc.UnidadeOrigem = cb.Unidade and uc.UnidadeDestino = art.UnidadeBase),1) as Quantity
+select cb.Artigo as Code, cb.CodBarras as Barcode, cb.Unidade as Unit, CAST(1 as int) as Quantity
 from ArtigoCodBarras cb WITH(NOLOCK)
-JOIN Artigo art (NOLOCK) on art.Artigo = cb.Artigo
+left join Artigo art (NOLOCK) on art.Artigo = cb.Artigo
 where art.ArtigoAnulado = 0
-UNION ALL
-select art.Artigo as Code
-, art.CodBarras as Barcode
-, art.UnidadeBase as Unit
-, 1 as Quantity
-from Artigo art WITH(NOLOCK) 
-where art.ArtigoAnulado = 0 and art.TratamentoDim<>1
 GO
 
 
@@ -137,12 +130,14 @@ IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'[dbo].[v_Kapps
 DROP view [dbo].[v_Kapps_Lots]
 GO
 CREATE view [dbo].[v_Kapps_Lots] as 
-select al.lote as Lot, al.artigo as Article,  i.armazem as Warehouse, al.validade as ExpirationDate, isnull(sum(i.stock),0) as Stock
-, i.Localizacao AS Location
-, al.DataFabrico AS ProductionDate
-from ArtigoLote al join Artigo a on al.artigo=a.artigo left join INV_ValoresActuaisStock i on al.artigo=i.artigo and al.lote=i.lote
-where al.Activo = 1 and i.armazem is not null and a.ArtigoAnulado = 0 and a.TratamentoDim<>1
-group by al.lote, al.artigo, i.armazem, al.validade, i.Localizacao, al.DataFabrico
+select al.lote as Lot
+, al.artigo as Article
+, al.validade as ExpirationDate
+, al.DataFabrico as ProductionDate
+, al.Activo as Actif
+from ArtigoLote al 
+join Artigo a on al.artigo=a.artigo 
+where a.ArtigoAnulado = 0 and a.TratamentoDim<>1
 GO
 
 
@@ -202,8 +197,8 @@ cab.NumDoc as 'NDC',
 from CabecDoc cab (NOLOCK)
 join Clientes cli (NOLOCK) ON cli.Cliente = cab.Entidade
 join DocumentosVenda tdoc (NOLOCK) on tdoc.Documento = cab.TipoDoc
-join CabecDocStatus docs (NOLOCK) on Cab.Id = docs.IdCabecDoc 
-left join u_Kapps_DossierLin (NOLOCK) on (u_Kapps_DossierLin.StampBo = cab.ID) and u_Kapps_DossierLin.Status <> 'X' and u_Kapps_DossierLin.Integrada = 'N' 
+join CabecDocStatus docs (NOLOCK) on cab.Id = docs.IdCabecDoc 
+left join u_Kapps_DossierLin (NOLOCK) on (u_Kapps_DossierLin.StampBo = cab.ID) and u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N' 
 where docs.Anulado = 0
 and docs.Fechado = 0
 and docs.Estado = 'P'  -- Mostra apenas os documentos pendentes, comentar esta linha se for necessário mostrar todos
@@ -215,19 +210,19 @@ IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'[dbo].[v_Kapps
 DROP view [dbo].[v_Kapps_Picking_Lines]
 GO
 CREATE view [dbo].[v_Kapps_Picking_Lines] as
-Select distinct 
+select distinct 
 CAST(lin.ID AS VARCHAR(36)) + '*' + CAST(lin.numlinha as varchar(15)) as 'PickingLineKey',
 lin.Artigo as 'Article',
-Lin.Descricao as 'Description',
-Lin.Quantidade as 'Quantity',
-(SELECT ISNULL(SUM(Ltr.QuantTrans),0) FROM LinhasDocTrans  Ltr (NOLOCK) WHERE Ltr.IdLinhasDocOrigem = Lin.ID) as 'QuantitySatisfied',
-Lin.Quantidade - ((SELECT ISNULL(SUM(Ltr.QuantTrans),0) FROM LinhasDocTrans  Ltr (NOLOCK) WHERE Ltr.IdLinhasDocOrigem = Lin.ID) + (select isnull(sum(u_Kapps_DossierLin.Qty2),0) from u_Kapps_DossierLin (NOLOCK) where u_Kapps_DossierLin.Status <> 'X' and u_Kapps_DossierLin.Integrada = 'N' and (cast(Lin.IdCabecDoc as varchar(255))=u_Kapps_DossierLin.stampbo) and (CAST(lin.ID AS VARCHAR(255)) + '*' + CAST(lin.numlinha as varchar(15)) = u_Kapps_DossierLin.Stampbi))) as 'QuantityPending',
-(select isnull(sum(u_Kapps_DossierLin.Qty2),0) from u_Kapps_DossierLin (NOLOCK) where u_Kapps_DossierLin.Status <> 'X' and u_Kapps_DossierLin.Integrada = 'N'  and (cast(Lin.IdCabecDoc as varchar(255))=u_Kapps_DossierLin.stampbo) and (CAST(lin.ID AS VARCHAR(255)) + '*' + CAST(lin.numlinha as varchar(15)) = u_Kapps_DossierLin.Stampbi)) as 'QuantityPicked', 
+lin.Descricao as 'Description',
+lin.Quantidade as 'Quantity',
+(SELECT ISNULL(SUM(Ltr.QuantTrans),0) FROM LinhasDocTrans  Ltr (NOLOCK) WHERE Ltr.IdLinhasDocOrigem = lin.ID) as 'QuantitySatisfied',
+lin.Quantidade - ((SELECT ISNULL(SUM(Ltr.QuantTrans),0) FROM LinhasDocTrans  Ltr (NOLOCK) WHERE Ltr.IdLinhasDocOrigem = lin.ID) + (select isnull(sum(u_Kapps_DossierLin.Qty2),0) from u_Kapps_DossierLin (NOLOCK) where u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N' and (cast(lin.IdCabecDoc as varchar(255))=u_Kapps_DossierLin.stampbo) and (CAST(lin.ID AS VARCHAR(255)) + '*' + CAST(lin.numlinha as varchar(15)) = u_Kapps_DossierLin.Stampbi))) as 'QuantityPending',
+(select isnull(sum(u_Kapps_DossierLin.Qty2),0) from u_Kapps_DossierLin (NOLOCK) where u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N'  and (cast(lin.IdCabecDoc as varchar(255))=u_Kapps_DossierLin.stampbo) and (CAST(lin.ID AS VARCHAR(255)) + '*' + CAST(lin.numlinha as varchar(15)) = u_Kapps_DossierLin.Stampbi)) as 'QuantityPicked', 
 Art.UnidadeBase AS 'BaseUnit',
-Lin.Unidade as 'BusyUnit',
-CASE WHEN Art.UnidadeBase = Lin.Unidade THEN 1 ELSE COALESCE(ARTUND.FactorConversao, uc.FactorConversao) END AS 'ConversionFator',
-Lin.Armazem as 'Warehouse',
-CAST(Lin.IdCabecDoc as varchar(36)) as 'PickingKey',
+lin.Unidade as 'BusyUnit',
+CASE WHEN Art.UnidadeBase = lin.Unidade THEN 1 ELSE COALESCE(ARTUND.FactorConversao, uc.FactorConversao) END AS 'ConversionFator',
+lin.Armazem as 'Warehouse',
+CAST(lin.IdCabecDoc as varchar(36)) as 'PickingKey',
 lin.numlinha as 'OriginalLineNumber',
 '' as UserCol1,
 '' as UserCol2,
@@ -251,7 +246,7 @@ cab.NumDoc as 'NDC',
 FROM LinhasDoc lin (NOLOCK) 
 JOIN CabecDoc cab (NOLOCK) ON cab.Id = lin.IdCabecDoc
 JOIN Artigo Art (NOLOCK) ON Art.Artigo = lin.Artigo 
-LEFT JOIN ArtigoUnidades ARTUND (NOLOCK) on ARTUND.Artigo = lin.Artigo AND ARTUND.UnidadeOrigem = Lin.Unidade AND ARTUND.UnidadeDestino = Art.UnidadeBase
+LEFT JOIN ArtigoUnidades ARTUND (NOLOCK) on ARTUND.Artigo = lin.Artigo AND ARTUND.UnidadeOrigem = lin.Unidade AND ARTUND.UnidadeDestino = Art.UnidadeBase
 LEFT JOIN LinhasDocStatus LinSta (NOLOCK) ON LinSta.IdLinhasDoc = lin.Id
 LEFT JOIN UnidadesConversao uc on uc.UnidadeOrigem=lin.Unidade and uc.UnidadeDestino=Art.UnidadeBase
 WHERE LinSta.Fechado = 0 and Art.TratamentoDim<>1
@@ -293,8 +288,8 @@ cab.NumDoc as 'NDC',
 from CabecDoc cab (NOLOCK)
 join Clientes cli (NOLOCK) ON cli.Cliente = cab.Entidade
 join DocumentosVenda tdoc (NOLOCK) on tdoc.Documento = cab.TipoDoc
-join CabecDocStatus docs (NOLOCK) on Cab.Id = docs.IdCabecDoc 
-left join u_Kapps_DossierLin (NOLOCK) on (u_Kapps_DossierLin.StampBo = cab.ID) and u_Kapps_DossierLin.Status <> 'X' and u_Kapps_DossierLin.Integrada = 'N' 
+join CabecDocStatus docs (NOLOCK) on cab.Id = docs.IdCabecDoc 
+left join u_Kapps_DossierLin (NOLOCK) on (u_Kapps_DossierLin.StampBo = cab.ID) and u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N' 
 where docs.Anulado = 0
 and docs.Fechado = 0
 and docs.Estado = 'P'  -- Mostra apenas os documentos pendentes, comentar esta linha se for necessário mostrar todos
@@ -306,19 +301,19 @@ IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'[dbo].[v_Kapps
 DROP view [dbo].[v_Kapps_Packing_Lines]
 GO
 CREATE view [dbo].[v_Kapps_Packing_Lines] as
-Select distinct 
+select distinct 
 CAST(lin.ID AS VARCHAR(36)) + '*' + CAST(lin.numlinha as varchar(15)) as 'PackingLineKey',
 lin.Artigo as 'Article',
-Lin.Descricao as 'Description',
-Lin.Quantidade as 'Quantity',
-(SELECT ISNULL(SUM(Ltr.QuantTrans),0) FROM LinhasDocTrans Ltr (NOLOCK) WHERE Ltr.IdLinhasDocOrigem = Lin.ID) as 'QuantitySatisfied',
-Lin.Quantidade - ((SELECT ISNULL(SUM(Ltr.QuantTrans),0) FROM LinhasDocTrans  Ltr (NOLOCK) WHERE Ltr.IdLinhasDocOrigem = Lin.ID) + (select isnull(sum(u_Kapps_DossierLin.Qty2),0) from u_Kapps_DossierLin (NOLOCK) where u_Kapps_DossierLin.Status <> 'X' and u_Kapps_DossierLin.Integrada = 'N' and (cast(Lin.IdCabecDoc as varchar(255))=u_Kapps_DossierLin.stampbo) and (CAST(lin.ID AS VARCHAR(255)) + '*' + CAST(lin.numlinha as varchar(15)) = u_Kapps_DossierLin.Stampbi))) as 'QuantityPending',
-(select isnull(sum(u_Kapps_DossierLin.Qty2),0) from u_Kapps_DossierLin (NOLOCK) where u_Kapps_DossierLin.Status <> 'X' and u_Kapps_DossierLin.Integrada = 'N'  and (cast(Lin.IdCabecDoc as varchar(255))=u_Kapps_DossierLin.stampbo) and (CAST(lin.ID AS VARCHAR(255)) + '*' + CAST(lin.numlinha as varchar(15)) = u_Kapps_DossierLin.Stampbi)) as 'QuantityPicked', 
+lin.Descricao as 'Description',
+lin.Quantidade as 'Quantity',
+(SELECT ISNULL(SUM(Ltr.QuantTrans),0) FROM LinhasDocTrans Ltr (NOLOCK) WHERE Ltr.IdLinhasDocOrigem = lin.ID) as 'QuantitySatisfied',
+lin.Quantidade - ((SELECT ISNULL(SUM(Ltr.QuantTrans),0) FROM LinhasDocTrans  Ltr (NOLOCK) WHERE Ltr.IdLinhasDocOrigem = lin.ID) + (select isnull(sum(u_Kapps_DossierLin.Qty2),0) from u_Kapps_DossierLin (NOLOCK) where u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N' and (cast(lin.IdCabecDoc as varchar(255))=u_Kapps_DossierLin.stampbo) and (CAST(lin.ID AS VARCHAR(255)) + '*' + CAST(lin.numlinha as varchar(15)) = u_Kapps_DossierLin.Stampbi))) as 'QuantityPending',
+(select isnull(sum(u_Kapps_DossierLin.Qty2),0) from u_Kapps_DossierLin (NOLOCK) where u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N'  and (cast(lin.IdCabecDoc as varchar(255))=u_Kapps_DossierLin.stampbo) and (CAST(lin.ID AS VARCHAR(255)) + '*' + CAST(lin.numlinha as varchar(15)) = u_Kapps_DossierLin.Stampbi)) as 'QuantityPicked', 
 Art.UnidadeBase AS 'BaseUnit',
-Lin.Unidade as 'BusyUnit',
-CASE WHEN Art.UnidadeBase = Lin.Unidade THEN 1 ELSE COALESCE(ARTUND.FactorConversao, uc.FactorConversao) END AS 'ConversionFator',
-Lin.Armazem as 'Warehouse',
-CAST(Lin.IdCabecDoc as varchar(36)) as 'PackingKey',
+lin.Unidade as 'BusyUnit',
+CASE WHEN Art.UnidadeBase = lin.Unidade THEN 1 ELSE COALESCE(ARTUND.FactorConversao, uc.FactorConversao) END AS 'ConversionFator',
+lin.Armazem as 'Warehouse',
+CAST(lin.IdCabecDoc as varchar(36)) as 'PackingKey',
 lin.numlinha as 'OriginalLineNumber',
 '' as UserCol1,
 '' as UserCol2,
@@ -337,10 +332,12 @@ cab.NumDoc as 'NDC',
 '' as 'Filter1','' as 'Filter2','' as 'Filter3','' as 'Filter4','' as 'Filter5'
 , lin.Localizacao AS Location
 , CASE WHEN lin.Lote='<L01>' then '' ELSE lin.Lote END AS Lot
+, '' as PalletType
+, 0 as PalletMaxUnits
 FROM LinhasDoc lin (NOLOCK) 
 JOIN CabecDoc cab (NOLOCK) on cab.Id = lin.IdCabecDoc
 JOIN Artigo Art (NOLOCK) ON Art.Artigo = lin.Artigo 
-LEFT JOIN ArtigoUnidades ARTUND (NOLOCK) on ARTUND.Artigo = lin.Artigo AND ARTUND.UnidadeOrigem = Lin.Unidade AND ARTUND.UnidadeDestino = Art.UnidadeBase
+LEFT JOIN ArtigoUnidades ARTUND (NOLOCK) on ARTUND.Artigo = lin.Artigo AND ARTUND.UnidadeOrigem = lin.Unidade AND ARTUND.UnidadeDestino = Art.UnidadeBase
 LEFT JOIN LinhasDocStatus LinSta (NOLOCK) ON LinSta.IdLinhasDoc = lin.Id
 LEFT JOIN UnidadesConversao uc on uc.UnidadeOrigem=lin.Unidade and uc.UnidadeDestino=Art.UnidadeBase
 WHERE LinSta.Fechado = 0 and Art.TratamentoDim<>1
@@ -381,8 +378,8 @@ cab.NumDoc as 'NDC',
 from CabecCompras cab (NOLOCK)
 join Fornecedores forn (NOLOCK) ON forn.Fornecedor = cab.Entidade
 join DocumentosCompra tdoc (NOLOCK) on tdoc.Documento = cab.TipoDoc
-join CabecComprasStatus docs (NOLOCK) on Cab.Id = docs.IdCabecCompras 
-left join u_Kapps_DossierLin (NOLOCK) on (u_Kapps_DossierLin.StampBo = cab.ID) and u_Kapps_DossierLin.Status <> 'X' and u_Kapps_DossierLin.Integrada = 'N' 
+join CabecComprasStatus docs (NOLOCK) on cab.Id = docs.IdCabecCompras 
+left join u_Kapps_DossierLin (NOLOCK) on (u_Kapps_DossierLin.StampBo = cab.ID) and u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N' 
 where docs.Anulado = 0
 and docs.Fechado = 0
 and docs.Estado = 'P'  -- Mostra apenas os documentos pendentes, comentar esta linha se for necessário mostrar todos
@@ -394,19 +391,19 @@ IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'[dbo].[v_Kapps
 DROP view [dbo].[v_Kapps_Reception_Lines]
 GO
 CREATE view [dbo].[v_Kapps_Reception_Lines] as
-Select distinct 
+select distinct 
 CAST(lin.ID AS VARCHAR(36)) + '*' + CAST(lin.numlinha as varchar(15)) as 'ReceptionLineKey',
 lin.Artigo as 'Article',
-Lin.Descricao as 'Description',
-ABS(Lin.Quantidade) as 'Quantity',
-(SELECT ISNULL(ABS(SUM(Ltr.QuantTrans)),0) FROM LinhasComprasTrans  Ltr (NOLOCK) WHERE Ltr.IdLinhasComprasOrigem = Lin.ID) as 'QuantitySatisfied',
-ABS(Lin.Quantidade - ((SELECT ISNULL(SUM(Ltr.QuantTrans),0) FROM LinhasComprasTrans  Ltr (NOLOCK) WHERE Ltr.IdLinhasComprasOrigem = Lin.ID) + (select isnull(sum(u_Kapps_DossierLin.Qty2),0) from u_Kapps_DossierLin (NOLOCK) where u_Kapps_DossierLin.Status <> 'X' and u_Kapps_DossierLin.Integrada = 'N'  and (cast(Lin.IdCabecCompras as varchar(255))=u_Kapps_DossierLin.stampbo) and (CAST(lin.ID AS VARCHAR(255)) + '*' + CAST(lin.numlinha as varchar(15)) = u_Kapps_DossierLin.Stampbi)))) as 'QuantityPending',
-(select isnull(sum(u_Kapps_DossierLin.Qty2),0) from u_Kapps_DossierLin (NOLOCK) where u_Kapps_DossierLin.Status <> 'X' and u_Kapps_DossierLin.Integrada = 'N'  and (cast(Lin.IdCabecCompras as varchar(255))=u_Kapps_DossierLin.stampbo) and (CAST(lin.ID AS VARCHAR(255)) + '*' + CAST(lin.numlinha as varchar(15)) = u_Kapps_DossierLin.Stampbi)) as 'QuantityPicked', 
+lin.Descricao as 'Description',
+ABS(lin.Quantidade) as 'Quantity',
+(SELECT ISNULL(ABS(SUM(Ltr.QuantTrans)),0) FROM LinhasComprasTrans  Ltr (NOLOCK) WHERE Ltr.IdLinhasComprasOrigem = lin.ID) as 'QuantitySatisfied',
+ABS(lin.Quantidade - ((SELECT ISNULL(SUM(Ltr.QuantTrans),0) FROM LinhasComprasTrans  Ltr (NOLOCK) WHERE Ltr.IdLinhasComprasOrigem = lin.ID) + (select isnull(sum(u_Kapps_DossierLin.Qty2),0) from u_Kapps_DossierLin (NOLOCK) where u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N'  and (cast(lin.IdCabecCompras as varchar(255))=u_Kapps_DossierLin.stampbo) and (CAST(lin.ID AS VARCHAR(255)) + '*' + CAST(lin.numlinha as varchar(15)) = u_Kapps_DossierLin.Stampbi)))) as 'QuantityPending',
+(select isnull(sum(u_Kapps_DossierLin.Qty2),0) from u_Kapps_DossierLin (NOLOCK) where u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N'  and (cast(lin.IdCabecCompras as varchar(255))=u_Kapps_DossierLin.stampbo) and (CAST(lin.ID AS VARCHAR(255)) + '*' + CAST(lin.numlinha as varchar(15)) = u_Kapps_DossierLin.Stampbi)) as 'QuantityPicked', 
 Art.UnidadeBase AS 'BaseUnit',
-Lin.Unidade as 'BusyUnit',
-CASE WHEN Art.UnidadeBase = Lin.Unidade THEN 1 ELSE COALESCE(ARTUND.FactorConversao, uc.FactorConversao) END AS 'ConversionFator',
-Lin.Armazem as 'Warehouse',
-cast(Lin.IdCabecCompras as varchar(36)) as 'ReceptionKey',
+lin.Unidade as 'BusyUnit',
+CASE WHEN Art.UnidadeBase = lin.Unidade THEN 1 ELSE COALESCE(ARTUND.FactorConversao, uc.FactorConversao) END AS 'ConversionFator',
+lin.Armazem as 'Warehouse',
+cast(lin.IdCabecCompras as varchar(36)) as 'ReceptionKey',
 lin.numlinha as 'OriginalLineNumber',
 '' as UserCol1,
 '' as UserCol2,
@@ -428,7 +425,7 @@ cab.NumDoc as 'NDC',
 FROM LinhasCompras lin (NOLOCK) 
 JOIN CabecCompras cab (NOLOCK) on cab.Id = lin.IdCabecCompras
 JOIN Artigo Art (NOLOCK) ON Art.Artigo = lin.Artigo 
-LEFT JOIN ArtigoUnidades ARTUND (NOLOCK) on ARTUND.Artigo = lin.Artigo AND ARTUND.UnidadeOrigem = Lin.Unidade AND ARTUND.UnidadeDestino = Art.UnidadeBase
+LEFT JOIN ArtigoUnidades ARTUND (NOLOCK) on ARTUND.Artigo = lin.Artigo AND ARTUND.UnidadeOrigem = lin.Unidade AND ARTUND.UnidadeDestino = Art.UnidadeBase
 LEFT JOIN LinhasComprasStatus LinSta (NOLOCK) ON LinSta.IdLinhasCompras = lin.Id
 LEFT JOIN UnidadesConversao uc on uc.UnidadeOrigem=lin.Unidade and uc.UnidadeDestino=Art.UnidadeBase
 WHERE LinSta.Fechado = 0 and Art.TratamentoDim<>1
@@ -467,6 +464,20 @@ WHERE UC.UnidadeOrigem NOT IN
 	WHERE ARTUND.Artigo = art.Artigo  and ARTUND.FactorConversao > 0 and ARTUND.UnidadeDestino = art.UnidadeBase
 	)
 AND uc.FactorConversao > 0 and (UC.UnidadeOrigem = art.UnidadeVenda or UC.UnidadeOrigem = art.UnidadeCompra) and art.TratamentoDim<>1
+UNION 
+SELECT cb.Artigo as Code, cb.Unidade as Unit,
+ISNULL((select COALESCE(uc.FactorConversao, 1) from UnidadesConversao uc (NOLOCK) WHERE uc.UnidadeOrigem = cb.Unidade and uc.UnidadeDestino = art.UnidadeBase),1) as Quantity
+FROM ArtigoCodBarras cb WITH(NOLOCK)
+JOIN Artigo art (NOLOCK) on art.Artigo = cb.Artigo
+WHERE art.ArtigoAnulado = 0
+and cb.Unidade<>art.UnidadeBase
+and COALESCE(cb.Unidade,'')<>''
+and cb.Unidade not in
+	(
+	SELECT ARTUND.UnidadeOrigem 'Unit' 
+	FROM ArtigoUnidades ARTUND (NOLOCK) 
+	WHERE ARTUND.Artigo = art.Artigo  and ARTUND.FactorConversao > 0 and ARTUND.UnidadeDestino = art.UnidadeBase
+	)
 GO
 
 
@@ -518,7 +529,7 @@ cab.Descricao as 'DocumentName',	-- Descrição da contagem
 '' as Location,
 '' as InternalStampDoc
 from INV_CabecInventarios cab (NOLOCK)
-left join u_Kapps_StockLines (NOLOCK) on (u_Kapps_StockLines.OrigStampHeader = cab.ID) and u_Kapps_StockLines.Status <> 'X' and u_Kapps_StockLines.Syncr = 'N' 
+left join u_Kapps_StockLines (NOLOCK) on (u_Kapps_StockLines.OrigStampHeader = cab.ID) and u_Kapps_StockLines.Status = 'A' and u_Kapps_StockLines.Syncr = 'N' 
 where cab.EstadoDoc=2
 UNION ALL
 SELECT 
@@ -555,18 +566,18 @@ IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'[dbo].[v_Kapps
 DROP view [dbo].[v_Kapps_Stock_Lines]
 GO
 CREATE view [dbo].[v_Kapps_Stock_Lines] as
-Select distinct 
-CAST(Lin.ID AS VARCHAR(255)) + '*' + CAST(Lin.NumLinha as varchar(15)) as 'LineKey', -- Chave Unica
-Lin.NumLinha as 'OrigLineNumber',
+select distinct 
+CAST(lin.ID AS VARCHAR(255)) + '*' + CAST(lin.NumLinha as varchar(15)) as 'LineKey', -- Chave Unica
+lin.NumLinha as 'OrigLineNumber',
 lin.Artigo as 'Article',
 art.Descricao as 'Description',
-Lin.QtdOriginal as 'Quantity',
-(select isnull(sum(u_Kapps_StockLines.Qty),0) from u_Kapps_StockLines (NOLOCK) where u_Kapps_StockLines.Status <> 'X' and u_Kapps_StockLines.Syncr = 'N'  and (u_Kapps_StockLines.OrigStampHeader=cast(Lin.IdCabecInventarios as varchar(255))) and (u_Kapps_StockLines.OrigStampLin=CAST(linDet.ID AS VARCHAR(255)) + '*' + CAST(LinDet.numlinha as varchar(15)) )) as 'QuantityPicked', 
-Lin.Unidade as 'BaseUnit',
+lin.QtdOriginal as 'Quantity',
+(select isnull(sum(u_Kapps_StockLines.Qty),0) from u_Kapps_StockLines (NOLOCK) where u_Kapps_StockLines.Status = 'A' and u_Kapps_StockLines.Syncr = 'N'  and (u_Kapps_StockLines.OrigStampHeader=cast(lin.IdCabecInventarios as varchar(255))) and (u_Kapps_StockLines.OrigStampLin=CAST(linDet.ID AS VARCHAR(255)) + '*' + CAST(LinDet.numlinha as varchar(15)) )) as 'QuantityPicked', 
+lin.Unidade as 'BaseUnit',
 cab.Armazem as 'Warehouse',
-Lin.Localizacao AS Location,
-CASE WHEN Lin.Lote='<L01>' then '' ELSE COALESCE(Lin.Lote,'') END AS Lot,
-CAST(Lin.IdCabecInventarios as varchar(255)) as 'CabKey',
+lin.Localizacao AS Location,
+CASE WHEN lin.Lote='<L01>' then '' ELSE COALESCE(lin.Lote,'') END AS Lot,
+CAST(lin.IdCabecInventarios as varchar(255)) as 'CabKey',
 '' as 'UserCol1',
 '' as 'UserCol2',
 '' as 'UserCol3',
@@ -585,7 +596,7 @@ CAST(Lin.IdCabecInventarios as varchar(255)) as 'CabKey',
 FROM INV_LinhasInventarios lin (NOLOCK) 
 JOIN INV_CabecInventarios cab (NOLOCK) on cab.Id = lin.IdCabecInventarios
 JOIN Artigo Art (NOLOCK) ON Art.Artigo = lin.Artigo 
-LEFT JOIN ArtigoUnidades ARTUND (NOLOCK) on ARTUND.Artigo = lin.Artigo AND ARTUND.UnidadeOrigem = Lin.Unidade AND ARTUND.UnidadeDestino = Art.UnidadeBase
+LEFT JOIN ArtigoUnidades ARTUND (NOLOCK) on ARTUND.Artigo = lin.Artigo AND ARTUND.UnidadeOrigem = lin.Unidade AND ARTUND.UnidadeDestino = Art.UnidadeBase
 LEFT JOIN INV_DetalhesLinhasInventarios LinDet ON lin.Id=LinDet.IdLinhaInventario
 WHERE cab.EstadoDoc=2 and art.TratamentoDim<>1
 GO
@@ -623,6 +634,7 @@ CREATE view [dbo].[v_Kapps_RestrictedUsersZones] as
 select 
 '' AS UserName,
 '' AS ZoneLocation
+WHERE 1 = 0
 GO
 
 
@@ -631,27 +643,8 @@ IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'[dbo].[v_Kapps
 DROP view [dbo].[v_Kapps_StockBreakReasons]
 GO
 CREATE view [dbo].[v_Kapps_StockBreakReasons] as 
-select 'Furto' AS Reason
-UNION
-select 'Vandalismo' AS Reason
-UNION
-select 'Incêndio' AS Reason
-UNION
-select 'Danos por águas' AS Reason
-UNION
-select 'Tempestades' AS Reason
-UNION
-select 'Falhas estruturais' AS Reason
-UNION
-select 'Fora de Validade' AS Reason
-UNION
-select 'Consumo interno' AS Reason
-UNION
-select 'Erros na expedição' AS Reason
-UNION
-select 'Devoluções de clientes'  AS Reason
-UNION
-select 'Mau acondicionamento'  AS Reason
+select ReasonID, ReasonDescription, ReasonType
+FROM u_Kapps_Reasons
 GO
 
 
@@ -667,6 +660,7 @@ select
 '' AS Location,
 '' AS Family,
 '' AS Article
+WHERE 1 = 0
 GO
 
 
@@ -684,9 +678,10 @@ select '' as NAME, '' as Code
 ,'' As Area
 ,'' As Country
 ,'' As Phone
-,'' as Latitude
-,'' as Longitude
+,CAST(0 as numeric(10,6)) as Latitude
+,CAST(0 as numeric(10,6)) as Longitude
 ,'' as OBS
+WHERE 1 = 0
 GO
 
 
@@ -699,7 +694,7 @@ select h.SSCC as HeaderSSCC
 , d.SSCC as DetailSSCC
 , h.PackId
 , d.Ref AS Article
-, d.Quantity
+, d.Quantity2 as Quantity
 , d.Quantity2UM as Unit
 , d.Lot
 , d.ExpirationDate
@@ -719,6 +714,7 @@ select h.SSCC as HeaderSSCC
 , h.CurrentWarehouse
 , h.CurrentLocation
 , h.PackStatus
+, h.PackType
 FROM u_Kapps_PackingDetails d
 LEFT JOIN u_Kapps_PackingHeader h on h.PackId=d.PackID
 LEFT JOIN u_Kapps_DossierLin lin on lin.StampLin=d.StampLin
@@ -757,6 +753,54 @@ cab.NumDoc as 'NDC',
 '' as 'Filter1','' as 'Filter2','' as 'Filter3','' as 'Filter4','' as 'Filter5'
 ,cab.EntidadeEntrega AS DeliveryCustomer
 ,cab.MoradaAltEntrega AS DeliveryCode
+--
+,'' as OriginWarehouse
+,'' as TransitWarehouse
+,'' as DestinationWarehouse
+--
+-- comentar as 3 linhas anteriores e descomentar as linhas seguintes após ter criado os campos de utilizador
+--
+--,cab.CDU_ArmazemOrigem as OriginWarehouse
+--,cab.CDU_ArmazemTransito as TransitWarehouse
+--,cab.CDU_ArmazemDestino as DestinationWarehouse
+--
+,'' as Barcode
+from CabecDoc cab (NOLOCK)
+join Clientes cli (NOLOCK) ON cli.Cliente = cab.Entidade
+join DocumentosVenda tdoc (NOLOCK) on tdoc.Documento = cab.TipoDoc
+join CabecDocStatus docs (NOLOCK) on cab.Id = docs.IdCabecDoc 
+where docs.Anulado = 0
+and docs.Fechado = 0
+and docs.Estado = 'P'  -- Mostra apenas os documentos pendentes, comentar esta linha se for necessário mostrar todos
+
+UNION ALL
+
+select distinct 
+CAST(cab.ID as varchar(36)) as 'PickingKey',
+cab.NumDoc as 'Number',
+cab.Nome as 'CustomerName',
+CAST(cab.Data as Date) as 'Date',
+cab.Entidade as 'Customer',
+cab.TipoDoc as 'Document',
+tdoc.Descricao as 'DocumentName',
+'' as 'UserCol1',
+'' as 'UserCol2',
+'' as 'UserCol3',
+'' as 'UserCol4',
+'' as 'UserCol5',
+'' as 'UserCol6',
+'' as 'UserCol7',
+'' as 'UserCol8',
+'' as 'UserCol9',
+'' as 'UserCol10',
+'' as 'EXR',
+cab.Serie as 'SEC',
+cab.TipoDoc as 'TPD',
+cab.NumDoc as 'NDC',
+'' as 'Filter1','' as 'Filter2','' as 'Filter3','' as 'Filter4','' as 'Filter5'
+,Entidade AS DeliveryCustomer 
+,cab.MoradaAltEntrega AS DeliveryCode
+--
 ,'' as OriginWarehouse
 ,'' as TransitWarehouse
 ,'' as DestinationWarehouse
@@ -766,14 +810,12 @@ cab.NumDoc as 'NDC',
 --,cab.CDU_ArmazemOrigem as OriginWarehouse
 --,cab.CDU_ArmazemTransito as TransitWarehouse
 --,cab.CDU_ArmazemDestino as DestinationWarehouse
+--
 ,'' as Barcode
-from CabecDoc cab (NOLOCK)
-join Clientes cli (NOLOCK) ON cli.Cliente = cab.Entidade
-join DocumentosVenda tdoc (NOLOCK) on tdoc.Documento = cab.TipoDoc
-join CabecDocStatus docs (NOLOCK) on Cab.Id = docs.IdCabecDoc 
-where docs.Anulado = 0
-and docs.Fechado = 0
-and docs.Estado = 'P'  -- Mostra apenas os documentos pendentes, comentar esta linha se for necessário mostrar todos
+from CabecInternos cab (NOLOCK)
+left join Clientes cli (NOLOCK) ON cli.Cliente = cab.Entidade
+join DocumentosInternos tdoc (NOLOCK) on tdoc.Documento = cab.TipoDoc
+where tdoc.TipoDocumento =1
 
 UNION ALL
 
@@ -802,21 +844,23 @@ cab.NumDoc as 'NDC',
 '' as 'Filter1','' as 'Filter2','' as 'Filter3','' as 'Filter4','' as 'Filter5'
 ,'' AS DeliveryCustomer
 ,'' AS DeliveryCode
+--
 ,'' as OriginWarehouse
 ,'' as TransitWarehouse
 ,'' as DestinationWarehouse
 --
--- comentar as linhas anteriores e descomentar as linhas seguintes após ter criado os campos de utilizador 
+-- comentar as 3 linhas anteriores e descomentar as linhas seguintes após ter criado os campos de utilizador
 --
 --,cab.CDU_ArmazemOrigem as OriginWarehouse
 --,cab.CDU_ArmazemTransito as TransitWarehouse
 --,cab.CDU_ArmazemDestino as DestinationWarehouse
+--
 ,'' as Barcode
 from INV_CabecTransferencias cab
 left join Clientes cli (NOLOCK) ON cli.Cliente = cab.Entidade
-left join DocumentosStk tdoc (NOLOCK) on tdoc.Documento = cab.TipoDoc
-where tdoc.TipoDocumento=3 
---and COALESCE(cab.CDU_ArmazemDestino,'')<>'' --retirar comentario após ter criado os campos de utilizador 
+left join INV_DocumentosTransferencia tdoc (NOLOCK) on tdoc.Documento = cab.TipoDoc
+where tdoc.TipoTransferencia = 0 
+--and COALESCE(cab.CDU_ArmazemDestino,'')<>'' 							--retirar comentario após ter criado os campos de utilizador 
 GO
 
 
@@ -825,26 +869,26 @@ IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'[dbo].[v_Kapps
 DROP view [dbo].[v_Kapps_PickTransf_Lines]
 GO
 CREATE view [dbo].[v_Kapps_PickTransf_Lines] as
-Select distinct 
+select distinct 
 CAST(lin.ID AS VARCHAR(36)) + '*' + CAST(lin.numlinha as varchar(15)) as 'PickingLineKey',
 lin.Artigo as 'Article',
-Lin.Descricao as 'Description',
-ABS(Lin.Quantidade) as 'Quantity',
+lin.Descricao as 'Description',
+ABS(lin.Quantidade) as 'Quantity',
 
 (SELECT ISNULL(ABS(SUM(Ltr.QuantTrans)),0) 
---+lin.CDU_QuantidadeAlternativa -- descomentar a linha após ter criado o campo de utilizador
-FROM LinhasDocTrans  Ltr (NOLOCK) WHERE Ltr.IdLinhasDocOrigem = Lin.ID) as 'QuantitySatisfied',
+--+lin.CDU_QuantidadeAlternativa 										-- descomentar a linha após ter criado o campo de utilizador
+FROM LinhasDocTrans  Ltr (NOLOCK) WHERE Ltr.IdLinhasDocOrigem = lin.ID) as 'QuantitySatisfied',
 
-ABS(Lin.Quantidade - ((SELECT ISNULL(SUM(Ltr.QuantTrans),0)
---+lin.CDU_QuantidadeAlternativa -- descomentar a linha após ter criado o campo de utilizador
-FROM LinhasDocTrans  Ltr (NOLOCK) WHERE Ltr.IdLinhasDocOrigem = Lin.ID) + (select isnull(sum(u_Kapps_DossierLin.Qty2),0) from u_Kapps_DossierLin (NOLOCK) where u_Kapps_DossierLin.Status <> 'X' and u_Kapps_DossierLin.Integrada = 'N' and (cast(Lin.IdCabecDoc as varchar(255))=u_Kapps_DossierLin.stampbo) and (CAST(lin.ID AS VARCHAR(255)) + '*' + CAST(lin.numlinha as varchar(15)) = u_Kapps_DossierLin.Stampbi)))) as 'QuantityPending',
+ABS(lin.Quantidade - ((SELECT ISNULL(SUM(Ltr.QuantTrans),0)
+--+lin.CDU_QuantidadeAlternativa 										-- descomentar a linha após ter criado o campo de utilizador
+FROM LinhasDocTrans  Ltr (NOLOCK) WHERE Ltr.IdLinhasDocOrigem = lin.ID) + (select isnull(sum(u_Kapps_DossierLin.Qty2),0) from u_Kapps_DossierLin (NOLOCK) where u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N' and (cast(lin.IdCabecDoc as varchar(255))=u_Kapps_DossierLin.stampbo) and (CAST(lin.ID AS VARCHAR(255)) + '*' + CAST(lin.numlinha as varchar(15)) = u_Kapps_DossierLin.Stampbi)))) as 'QuantityPending',
 
-(select isnull(sum(u_Kapps_DossierLin.Qty2),0) from u_Kapps_DossierLin (NOLOCK) where u_Kapps_DossierLin.Status <> 'X' and u_Kapps_DossierLin.Integrada = 'N'  and (cast(Lin.IdCabecDoc as varchar(255))=u_Kapps_DossierLin.stampbo) and (CAST(lin.ID AS VARCHAR(255)) + '*' + CAST(lin.numlinha as varchar(15)) = u_Kapps_DossierLin.Stampbi)) as 'QuantityPicked', 
+(select isnull(sum(u_Kapps_DossierLin.Qty2),0) from u_Kapps_DossierLin (NOLOCK) where u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N'  and (cast(lin.IdCabecDoc as varchar(255))=u_Kapps_DossierLin.stampbo) and (CAST(lin.ID AS VARCHAR(255)) + '*' + CAST(lin.numlinha as varchar(15)) = u_Kapps_DossierLin.Stampbi)) as 'QuantityPicked', 
 Art.UnidadeBase AS 'BaseUnit',
-Lin.Unidade as 'BusyUnit',
-CASE WHEN Art.UnidadeBase = Lin.Unidade THEN 1 ELSE COALESCE(ARTUND.FactorConversao, uc.FactorConversao) END AS 'ConversionFator',
-Lin.Armazem as 'Warehouse',
-CAST(Lin.IdCabecDoc as varchar(36)) as 'PickingKey',
+lin.Unidade as 'BusyUnit',
+CASE WHEN Art.UnidadeBase = lin.Unidade THEN 1 ELSE COALESCE(ARTUND.FactorConversao, uc.FactorConversao) END AS 'ConversionFator',
+lin.Armazem as 'Warehouse',
+CAST(lin.IdCabecDoc as varchar(36)) as 'PickingKey',
 lin.numlinha as 'OriginalLineNumber',
 '' as UserCol1,
 '' as UserCol2,
@@ -868,31 +912,80 @@ cab.NumDoc as 'NDC',
 FROM LinhasDoc lin (NOLOCK) 
 JOIN CabecDoc cab (NOLOCK) ON cab.Id = lin.IdCabecDoc
 JOIN Artigo Art (NOLOCK) ON Art.Artigo = lin.Artigo 
-LEFT JOIN ArtigoUnidades ARTUND (NOLOCK) on ARTUND.Artigo = lin.Artigo AND ARTUND.UnidadeOrigem = Lin.Unidade AND ARTUND.UnidadeDestino = Art.UnidadeBase
+LEFT JOIN ArtigoUnidades ARTUND (NOLOCK) on ARTUND.Artigo = lin.Artigo AND ARTUND.UnidadeOrigem = lin.Unidade AND ARTUND.UnidadeDestino = Art.UnidadeBase
 LEFT JOIN LinhasDocStatus LinSta (NOLOCK) ON LinSta.IdLinhasDoc = lin.Id
 LEFT JOIN UnidadesConversao uc on uc.UnidadeOrigem=lin.Unidade and uc.UnidadeDestino=Art.UnidadeBase
 WHERE LinSta.Fechado = 0 and Art.TratamentoDim<>1
 
 UNION ALL
 
-Select
+select distinct 
 CAST(lin.ID AS VARCHAR(36)) + '*' + CAST(lin.numlinha as varchar(15)) as 'PickingLineKey',
 lin.Artigo as 'Article',
-Lin.Descricao as 'Description',
-Lin.Quantidade as 'Quantity',
+lin.Descricao as 'Description',
+ABS(lin.Quantidade) as 'Quantity',
+(SELECT ISNULL(SUM(ABS(Quantidade)), 0) AS Quantidade  FROM INV_LinhasTransferencias   WHERE ModuloOrigemCopia = 'N' AND IdLinhaOrigemCopia = lin.ID)  as 'QuantitySatisfied',
+ABS(lin.Quantidade) - (
+(SELECT ISNULL(SUM(ABS(Quantidade)), 0) AS Quantidade  FROM INV_LinhasTransferencias  
+ WHERE ModuloOrigemCopia = 'N' AND IdLinhaOrigemCopia = lin.ID) 
++(select isnull(sum(u_Kapps_DossierLin.Qty2),0) from u_Kapps_DossierLin (NOLOCK) where u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N'  and (cast(lin.IdCabecInternos as varchar(255))=u_Kapps_DossierLin.stampbo) and (CAST(lin.ID AS VARCHAR(255)) + '*' + CAST(lin.numlinha as varchar(15)) = u_Kapps_DossierLin.Stampbi))
+) 
+as 'QuantityPending',
+(select isnull(sum(u_Kapps_DossierLin.Qty2),0) from u_Kapps_DossierLin (NOLOCK) where u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N'  and (cast(lin.IdCabecInternos as varchar(255))=u_Kapps_DossierLin.stampbo) and (CAST(lin.ID AS VARCHAR(255)) + '*' + CAST(lin.numlinha as varchar(15)) = u_Kapps_DossierLin.Stampbi)) as 'QuantityPicked', 
+Art.UnidadeBase AS 'BaseUnit',
+lin.Unidade as 'BusyUnit',
+CASE WHEN Art.UnidadeBase = lin.Unidade THEN 1 ELSE COALESCE(ARTUND.FactorConversao, uc.FactorConversao) END AS 'ConversionFator',
+lin.Armazem as 'Warehouse',
+CAST(lin.IdCabecInternos as varchar(36)) as 'PickingKey',
+lin.numlinha as 'OriginalLineNumber',
+'' as UserCol1,
+'' as UserCol2,
+'' as UserCol3,
+'' as UserCol4,
+'' as UserCol5,
+'' as UserCol6,
+'' as UserCol7,
+'' as UserCol8,
+'' as UserCol9,
+'' as UserCol10,
+'' as 'EXR',
+cab.serie as 'SEC',
+cab.TipoDoc as 'TPD',
+cab.NumDoc as 'NDC',
+'' as 'Filter1','' as 'Filter2','' as 'Filter3','' as 'Filter4','' as 'Filter5'
+, lin.Localizacao AS Location
+, CASE WHEN lin.Lote='<L01>' then '' ELSE lin.Lote END AS Lot
+, '' as PalletType
+, 0 as PalletMaxUnits
+FROM LinhasInternos lin (NOLOCK) 
+JOIN CabecInternos cab (NOLOCK) on cab.Id = lin.IdCabecInternos
+JOIN Artigo Art (NOLOCK) on Art.Artigo = lin.Artigo 
+LEFT JOIN ArtigoUnidades ARTUND (NOLOCK) on ARTUND.Artigo = lin.Artigo AND ARTUND.UnidadeOrigem = lin.Unidade AND ARTUND.UnidadeDestino = Art.UnidadeBase
+LEFT JOIN LinhasDocStatus LinSta (NOLOCK) on LinSta.IdLinhasDoc = lin.Id
+LEFT JOIN UnidadesConversao uc on uc.UnidadeOrigem=lin.Unidade and uc.UnidadeDestino=Art.UnidadeBase
+LEFT JOIN DocumentosInternos tdoc (NOLOCK) on tdoc.Documento = cab.TipoDoc
+where tdoc.TipoDocumento =1
+
+UNION ALL
+
+select
+CAST(lin.ID AS VARCHAR(36)) + '*' + CAST(lin.numlinha as varchar(15)) as 'PickingLineKey',
+lin.Artigo as 'Article',
+lin.Descricao as 'Description',
+lin.Quantidade as 'Quantity',
 0 as 'QuantitySatisfied',
---COALESCE(lin.CDU_QuantidadeAlternativa,0) as 'QuantitySatisfied', -- descomentar a linha e eliminar a linha anterior após ter criado o campo de utilizador
-Lin.Quantidade - (
---COALESCE(lin.CDU_QuantidadeAlternativa,0) + -- descomentar a linha após ter criado o campo de utilizador
-(select isnull(sum(u_Kapps_DossierLin.Qty2),0) from u_Kapps_DossierLin (NOLOCK) where u_Kapps_DossierLin.Status <> 'X' and u_Kapps_DossierLin.Integrada = 'N' and (cast(Lin.IdCabecTransferencias as varchar(255))=u_Kapps_DossierLin.stampbo) and (CAST(lin.ID AS VARCHAR(255)) + '*' + CAST(lin.numlinha as varchar(15)) = u_Kapps_DossierLin.Stampbi))) 
+--COALESCE(lin.CDU_QuantidadeAlternativa,0) as 'QuantitySatisfied', 	-- descomentar a linha e eliminar a linha anterior após ter criado o campo de utilizador
+lin.Quantidade - (
+--COALESCE(lin.CDU_QuantidadeAlternativa,0) + 							-- descomentar a linha após ter criado o campo de utilizador
+(select isnull(sum(u_Kapps_DossierLin.Qty2),0) from u_Kapps_DossierLin (NOLOCK) where u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N' and (cast(lin.IdCabecTransferencias as varchar(255))=u_Kapps_DossierLin.stampbo) and (CAST(lin.ID AS VARCHAR(255)) + '*' + CAST(lin.numlinha as varchar(15)) = u_Kapps_DossierLin.Stampbi))) 
 as 'QuantityPending',
 
-(select isnull(sum(u_Kapps_DossierLin.Qty2),0) from u_Kapps_DossierLin (NOLOCK) where u_Kapps_DossierLin.Status <> 'X' and u_Kapps_DossierLin.Integrada = 'N'  and (cast(Lin.IdCabecTransferencias as varchar(255))=u_Kapps_DossierLin.stampbo) and (CAST(lin.ID AS VARCHAR(255)) + '*' + CAST(lin.numlinha as varchar(15)) = u_Kapps_DossierLin.Stampbi)) as 'QuantityPicked', 
+(select isnull(sum(u_Kapps_DossierLin.Qty2),0) from u_Kapps_DossierLin (NOLOCK) where u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N'  and (cast(lin.IdCabecTransferencias as varchar(255))=u_Kapps_DossierLin.stampbo) and (CAST(lin.ID AS VARCHAR(255)) + '*' + CAST(lin.numlinha as varchar(15)) = u_Kapps_DossierLin.Stampbi)) as 'QuantityPicked', 
 Art.UnidadeBase AS 'BaseUnit',
-Lin.Unidade as 'BusyUnit',
-CASE WHEN Art.UnidadeBase = Lin.Unidade THEN 1 ELSE ARTUND.FactorConversao END AS 'ConversionFator',
-Lin.Armazem as 'Warehouse',
-CAST(Lin.IdCabecTransferencias as varchar(36)) as 'PickingKey',
+lin.Unidade as 'BusyUnit',
+CASE WHEN Art.UnidadeBase = lin.Unidade THEN 1 ELSE ARTUND.FactorConversao END AS 'ConversionFator',
+lin.Armazem as 'Warehouse',
+CAST(lin.IdCabecTransferencias as varchar(36)) as 'PickingKey',
 lin.numlinha as 'OriginalLineNumber',
 '' as UserCol1,
 '' as UserCol2,
@@ -914,10 +1007,24 @@ cab.NumDoc as 'NDC',
 , '' as PalletType
 , '' as PalletMaxUnits
 FROM INV_LinhasTransferencias lin (NOLOCK) 
-JOIN INV_CabecTransferencias cab (NOLOCK) ON cab.Id = lin.IdCabecTransferencias
-JOIN Artigo Art (NOLOCK) ON Art.Artigo = lin.Artigo 
-left join ArtigoUnidades ARTUND (NOLOCK) on ARTUND.Artigo = lin.Artigo AND ARTUND.UnidadeOrigem = Lin.Unidade AND ARTUND.UnidadeDestino = Art.UnidadeBase
-left join DocumentosStk tdoc (NOLOCK) on tdoc.Documento = cab.TipoDoc
-where tdoc.TipoDocumento=3 and lin.TipoLinhaTransf=0
---and COALESCE(cab.CDU_ArmazemDestino,'')<>''
+left join INV_CabecTransferencias cab (NOLOCK) on cab.Id = lin.IdCabecTransferencias
+left join Artigo Art (NOLOCK) on Art.Artigo = lin.Artigo 
+left join ArtigoUnidades ARTUND (NOLOCK) on ARTUND.Artigo = lin.Artigo AND ARTUND.UnidadeOrigem = lin.Unidade AND ARTUND.UnidadeDestino = Art.UnidadeBase
+left join INV_DocumentosTransferencia tdoc (NOLOCK) on tdoc.Documento = cab.TipoDoc
+where 
+lin.TipoLinhaTransf=0 and 
+tdoc.TipoTransferencia = 0 
+--AND COALESCE(cab.CDU_ArmazemDestino,'')<>''							-- descomentar a linha após ter criado o campo de utilizador
+GO
+
+
+
+IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'[dbo].[v_Kapps_Stock_Status]'))
+DROP view [dbo].[v_Kapps_Stock_Status]
+GO
+CREATE view [dbo].[v_Kapps_Stock_Status] as 
+select Estado as Code
+, Descricao AS Description
+FROM INV_Estados
+WHERE Inventariavel=1 and EstadoReserva=0
 GO

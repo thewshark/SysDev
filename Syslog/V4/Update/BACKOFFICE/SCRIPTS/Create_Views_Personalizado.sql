@@ -17,10 +17,11 @@ CAST('0' as varchar(1)) as RuleForSSCC,	-- Regra a usar na criação de SSCC no 
 '' as Area,
 '' as Country,
 '' as Phone,
-'' as Latitude,
-'' as Longitude,
+CAST(0 as numeric(10,6)) as Latitude,
+CAST(0 as numeric(10,6)) as Longitude,
 '' as OBS,
-0 as InternalCustomer
+0 as InternalCustomer,
+'' as ShortName
 GO
 SET NOEXEC OFF
 GO
@@ -43,8 +44,8 @@ select
 '' as Area, 
 '' as Country, 
 '' as Phone, 
-'' as Latitude, 
-'' as Longitude, 
+CAST(0 as numeric(10,6)) as Latitude, 
+CAST(0 as numeric(10,6)) as Longitude, 
 '' as OBS
 GO
 SET NOEXEC OFF
@@ -102,26 +103,27 @@ END
 GO
 CREATE view [dbo].[v_Kapps_Articles] as 
 select 
-'' as 'Description', 
-'' as 'Code', 
-'' as 'Barcode',
-'' as 'UseLots', 
-0 as 'UseSerialNumber',
-'' as 'BaseUnit', 
-'' as 'Family', 
-0 as 'MovStock',
-'' as 'GTIN',
-'' as DefaultWarehouse,
-'' as DefaultLocation,
-cast(1 as bit) as UseLocations,						-- (1-Sim) (0-Não)
-'' as SellUnit,
-'' as BuyUnit,
-0 as LoteControlOut,						-- 0-Manual 1-FIFO, 2-FEFO, 3-LIFO
-1 as UseExpirationDate,
-CAST(0 as bit) as UseWeight,							-- (1-Sim) (0-Não)
-0 as StoreInNrDays,
-0 as StoreOutNrDays,
-'' as 'Filter1', '' as 'Filter2','' as 'Filter3','' as 'Filter4','' as 'Filter5' 
+'' as Description
+, '' as Code
+, '' as Barcode
+, '' as UseLots 
+, 0 as UseSerialNumber
+, '' as BaseUnit
+, '' as Family
+, '' as 'Filter1','' as 'Filter2','' as 'Filter3','' as 'Filter4','' as 'Filter5'
+, 0 as MovStock
+, '' as GTIN
+, '' as DefaultWarehouse
+, '' as DefaultLocation
+, cast(1 as bit) as UseLocations						-- (1-Sim) (0-Não)
+, '' as SellUnit
+, '' as BuyUnit
+, 0 as LoteControlOut									-- 0-Manual 1-FIFO, 2-FEFO, 3-LIFO
+, 1 as UseExpirationDate
+, CAST(0 as bit) as UseWeight							-- (1-Sim) (0-Não)
+, 0 AS StoreInNrDays									-- Nº de dias minimo de validade na receção (excepto se existir regra a contrariar em [Validades mínimas])
+, 0 AS StoreOutNrDays									-- Nº de dias minimo de validade na expedição (excepto se existir regra a contrariar em [Validades mínimas])
+, CAST(0 as int) AS BoxMaxQuantity
 GO
 
 
@@ -165,13 +167,11 @@ END
 GO
 CREATE view [dbo].[v_Kapps_Lots] as 
 select 
-'' as Lot, 
-'' as Article, 
-'' as Warehouse, 
-'' as ExpirationDate, 
-0 as Stock, 
-'' as Location, 
-'' as ProductionDate
+'' as Lot 
+, '' as Article
+, '' as ExpirationDate
+, '' as ProductionDate
+, CAST(1 as bit) as Actif
 GO
 
 
@@ -360,7 +360,9 @@ Select
 '' as 'NDC',
 '' as 'Filter1','' as 'Filter2','' as 'Filter3','' as 'Filter4','' as 'Filter5',
 '' as Location,
-'' as Lot
+'' as Lot,
+'' as PalletType,
+0 as PalletMaxUnits
 GO
 SET NOEXEC OFF
 GO
@@ -602,7 +604,8 @@ BEGIN
 END
 GO
 CREATE view [dbo].[v_Kapps_StockBreakReasons] as 
-select '' as Reason
+select ReasonID, ReasonDescription, ReasonType
+FROM u_Kapps_Reasons
 GO
 
 
@@ -641,8 +644,8 @@ select '' as Name
 ,'' as Area
 ,'' as Country
 ,'' as Phone
-,'' as Latitude
-,'' as Longitude
+,CAST(0 as numeric(10,6)) as Latitude
+,CAST(0 as numeric(10,6)) as Longitude
 ,'' as OBS
 GO
 
@@ -677,7 +680,8 @@ select
 '' as Location,
 '' as CurrentWarehouse,
 '' as CurrentLocation,
-0 as PackStatus
+0 as PackStatus,
+'' as PackType
 GO
 SET NOEXEC OFF
 GO
@@ -770,3 +774,16 @@ SET NOEXEC OFF
 GO
 
 
+
+IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'[dbo].[v_Kapps_Stock_Status]'))
+BEGIN
+	SET NOEXEC ON
+END
+GO
+CREATE view [dbo].[v_Kapps_Stock_Status] as 
+select '' as Code
+, '' AS Description
+WHERE 1=0
+GO
+SET NOEXEC OFF
+GO

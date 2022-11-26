@@ -3,6 +3,7 @@ CREATE PROCEDURE [SP_u_Kapps_UpdateBackoffice]
 AS
 BEGIN
 	SET NOCOUNT ON;
+	SET XACT_ABORT ON
 	DECLARE @STATE INT
 	DECLARE @ErrorMessage NVARCHAR(4000)
 	DECLARE @ErrorSeverity INT
@@ -667,13 +668,217 @@ BEGIN
 
 			ALTER TABLE u_Kapps_Labels ALTER COLUMN LabelCode varchar(max)
 		END
-
-
 		
+		IF (@DatabaseVersion < 99)
+		BEGIN
+			DROP TABLE u_Kapps_Scales
+		END
+
+		IF (@DatabaseVersion < 100)
+		BEGIN
+			ALTER TABLE u_Kapps_LoadingPallets ADD Lot nvarchar(50) NOT NULL DEFAULT ('') WITH VALUES;
+			ALTER TABLE u_Kapps_LoadingPallets ADD ExpirationDate nvarchar(8) NOT NULL DEFAULT ('') WITH VALUES;
+			
+			DROP INDEX IX_u_Kapps_LoadingLines_LoadNr ON u_kapps_loadingLines;
+			ALTER TABLE u_Kapps_LoadingLines DROP CONSTRAINT DF_u_Kapps_LoadingLines_LoadNr;
+			ALTER TABLE u_Kapps_LoadingLines ALTER COLUMN LoadNr bigint;
+			ALTER TABLE u_Kapps_LoadingLines ADD CONSTRAINT DF_u_Kapps_LoadingLines_LoadNr DEFAULT( ( 0 ) ) FOR LoadNr;
+			CREATE NONCLUSTERED INDEX IX_u_Kapps_LoadingLines_LoadNr ON u_Kapps_LoadingLines ( LoadNr, DocID, LineID) ON [PRIMARY];
+			
+			ALTER TABLE u_Kapps_Log DROP CONSTRAINT DF_u_Kapps_Log_LogDetail;
+			ALTER TABLE u_Kapps_Log ALTER COLUMN LogDetail varchar(max);
+			ALTER TABLE u_Kapps_Log ADD CONSTRAINT DF_u_Kapps_Log_LogDetail DEFAULT ('') FOR LogDetail;
+
+			ALTER TABLE u_Kapps_Users ADD PasswordERP nvarchar(50) NOT NULL DEFAULT ('') WITH VALUES;
+			ALTER TABLE u_Kapps_Users ADD CONSTRAINT DF_u_Kapps_Users_UserERP DEFAULT( ('') ) FOR UserERP;
+		END
+	
+		IF (@DatabaseVersion < 101)
+		BEGIN
+			ALTER TABLE u_Kapps_StockLines ADD StockStatus nvarchar(50) NOT NULL DEFAULT ('DISP') WITH VALUES;
+		END
+		
+		IF (@DatabaseVersion < 102)
+		BEGIN
+			ALTER TABLE u_Kapps_ProductLabelingRules ADD LabelPackID nvarchar(100) NOT NULL DEFAULT ('') WITH VALUES;
+			ALTER TABLE u_Kapps_ProductLabelingLines ADD TotalBoxes int NULL;
+		END
+
+		IF (@DatabaseVersion < 103)
+		BEGIN
+			ALTER TABLE u_Kapps_ProductLabelingRules ADD LabelPaleteID nvarchar(100) NOT NULL DEFAULT ('') WITH VALUES;
+
+			ALTER TABLE dbo.u_Kapps_UsersPermissions ADD
+				FunctionId varchar(50) NOT NULL CONSTRAINT DF_u_Kapps_UsersPermissions_FunctionId DEFAULT (''),
+				CreationUser varchar(20) NOT NULL CONSTRAINT DF_u_Kapps_UsersPermissions_CreationUser DEFAULT (''),
+				CreationDate varchar(8) NOT NULL CONSTRAINT DF_u_Kapps_UsersPermissions_CreationDate DEFAULT (''),
+				CreationTime varchar(6) NOT NULL CONSTRAINT DF_u_Kapps_UsersPermissions_CreationTime DEFAULT (''),
+				CreationProcess varchar(50) NOT NULL CONSTRAINT DF_u_Kapps_UsersPermissions_CreationProcess DEFAULT (''),
+				CreationNetIPAddress varchar(50) NOT NULL CONSTRAINT DF_u_Kapps_UsersPermissions_CreationNetIPAddress DEFAULT (''),
+				CreationNetMachineName varchar(50) NOT NULL CONSTRAINT DF_u_Kapps_UsersPermissions_CreationNetMachineName DEFAULT (''),
+				ModificationUser varchar(20) NOT NULL CONSTRAINT DF_u_Kapps_UsersPermissions_ModificationUser DEFAULT (''),
+				ModificationDate varchar(8) NOT NULL CONSTRAINT DF_u_Kapps_UsersPermissions_ModificationDate DEFAULT (''),
+				ModificationTime varchar(6) NOT NULL CONSTRAINT DF_u_Kapps_UsersPermissions_ModificationTime DEFAULT (''),
+				ModificationProcess varchar(50) NOT NULL CONSTRAINT DF_u_Kapps_UsersPermissions_ModificationProcess DEFAULT (''),
+				ModificationNetIPAddress varchar(50) NOT NULL CONSTRAINT DF_u_Kapps_UsersPermissions_ModificationNetIPAddress DEFAULT (''),
+				ModificationNetMachineName varchar(50) NOT NULL CONSTRAINT DF_u_Kapps_UsersPermissions_ModificationNetMachineName DEFAULT ('');
+
+			--ALTER TABLE dbo.u_Kapps_UsersPermissions SET (LOCK_ESCALATION = TABLE);
+
+			ALTER TABLE dbo.u_Kapps_BO_Menu ADD
+				FunctionId varchar(50) NOT NULL CONSTRAINT DF_u_Kapps_BO_Menu_FunctionId DEFAULT (''),
+				FunctionType varchar(1) NOT NULL CONSTRAINT DF_u_Kapps_BO_Menu_FunctionType DEFAULT (''),
+				FunctionGroup varchar(100) NOT NULL CONSTRAINT DF_u_Kapps_BO_Menu_FunctionGroup DEFAULT (''),
+				Root varchar(50) NOT NULL CONSTRAINT DF_u_Kapps_BO_Menu_Root DEFAULT (''),
+				Node01 varchar(50) NOT NULL CONSTRAINT DF_u_Kapps_BO_Menu_Node01 DEFAULT (''),
+				Node02 varchar(50) NOT NULL CONSTRAINT DF_u_Kapps_BO_Menu_Node02 DEFAULT (''),
+				Node03 varchar(50) NOT NULL CONSTRAINT DF_u_Kapps_BO_Menu_Node03 DEFAULT (''),
+				Node04 varchar(50) NOT NULL CONSTRAINT DF_u_Kapps_BO_Menu_Node04 DEFAULT (''),
+				Node05 varchar(50) NOT NULL CONSTRAINT DF_u_Kapps_BO_Menu_Node05 DEFAULT (''),
+				Sequence int NOT NULL CONSTRAINT DF_u_Kapps_BO_Menu_Sequence DEFAULT ((0)),
+				CreationUser varchar(20) NOT NULL CONSTRAINT DF_u_Kapps_BO_Menu_CreationUser DEFAULT (''),
+				CreationDate varchar(8) NOT NULL CONSTRAINT DF_u_Kapps_BO_Menu_CreationDate DEFAULT (''),
+				CreationTime varchar(6) NOT NULL CONSTRAINT DF_u_Kapps_BO_Menu_CreationTime DEFAULT (''),
+				CreationProcess varchar(50) NOT NULL CONSTRAINT DF_u_Kapps_BO_Menu_CreationProcess DEFAULT (''),
+				CreationNetIPAddress varchar(50) NOT NULL CONSTRAINT DF_u_Kapps_BO_Menu_CreationNetIPAddress DEFAULT (''),
+				CreationNetMachineName varchar(50) NOT NULL CONSTRAINT DF_u_Kapps_BO_Menu_CreationNetMachineName DEFAULT (''),
+				ModificationUser varchar(20) NOT NULL CONSTRAINT DF_u_Kapps_BO_Menu_ModificationUser DEFAULT (''),
+				ModificationDate varchar(8) NOT NULL CONSTRAINT DF_u_Kapps_BO_Menu_ModificationDate DEFAULT (''),
+				ModificationTime varchar(6) NOT NULL CONSTRAINT DF_u_Kapps_BO_Menu_ModificationTime DEFAULT (''),
+				ModificationProcess varchar(50) NOT NULL CONSTRAINT DF_u_Kapps_BO_Menu_ModificationProcess DEFAULT (''),
+				ModificationNetIPAddress varchar(50) NOT NULL CONSTRAINT DF_u_Kapps_BO_Menu_ModificationNetIPAddress DEFAULT (''),
+				ModificationNetMachineName varchar(50) NOT NULL CONSTRAINT DF_u_Kapps_BO_Menu_ModificationNetMachineName DEFAULT ('');
+
+			--ALTER TABLE dbo.u_Kapps_BO_Menu SET (LOCK_ESCALATION = TABLE);
+
+			ALTER TABLE u_Kapps_BO_Menu ADD	IsDefault bit NOT NULL DEFAULT 0;
+			ALTER TABLE u_Kapps_Queries ADD	Stamp varchar(20) NOT NULL DEFAULT ('');
+			ALTER TABLE u_Kapps_Users ADD IsAdmin bit NOT NULL DEFAULT 0;
+		END
+		
+		--IF (@DatabaseVersion < 104)
+		--BEGIN
+		--END
+		
+		IF (@DatabaseVersion < 105)
+		BEGIN
+			ALTER TABLE u_Kapps_ParametersMonitors ADD Panel13_Texto varchar(50) NOT NULL DEFAULT ('');
+			ALTER TABLE u_Kapps_ParametersMonitors ADD Panel13_Background varchar(50) NOT NULL DEFAULT ('');
+			ALTER TABLE u_Kapps_ParametersMonitors ADD Panel13_Foreground varchar(50) NOT NULL DEFAULT ('');
+			ALTER TABLE u_Kapps_ParametersMonitors ADD Panel13_FontFamily varchar(50) NOT NULL DEFAULT ('');
+			ALTER TABLE u_Kapps_ParametersMonitors ADD Panel13_FontSize varchar(50) NOT NULL DEFAULT ('');
+			ALTER TABLE u_Kapps_ParametersMonitors ADD Panel13_FontStyle varchar(50) NOT NULL DEFAULT ('');
+			ALTER TABLE u_Kapps_ParametersMonitors ADD Panel13_FontWeight varchar(50) NOT NULL DEFAULT ('');
+			ALTER TABLE u_Kapps_ParametersMonitors ADD Panel13_FontAligment varchar(50) NOT NULL DEFAULT ('');
+
+			ALTER TABLE u_Kapps_ParametersMonitors ADD Panel14_Texto varchar(50) NOT NULL DEFAULT ('');
+			ALTER TABLE u_Kapps_ParametersMonitors ADD Panel14_Background varchar(50) NOT NULL DEFAULT ('');
+			ALTER TABLE u_Kapps_ParametersMonitors ADD Panel14_Foreground varchar(50) NOT NULL DEFAULT ('');
+			ALTER TABLE u_Kapps_ParametersMonitors ADD Panel14_FontFamily varchar(50) NOT NULL DEFAULT ('');
+			ALTER TABLE u_Kapps_ParametersMonitors ADD Panel14_FontSize varchar(50) NOT NULL DEFAULT ('');
+			ALTER TABLE u_Kapps_ParametersMonitors ADD Panel14_FontStyle varchar(50) NOT NULL DEFAULT ('');
+			ALTER TABLE u_Kapps_ParametersMonitors ADD Panel14_FontWeight varchar(50) NOT NULL DEFAULT ('');
+			ALTER TABLE u_Kapps_ParametersMonitors ADD Panel14_FontAligment varchar(50) NOT NULL DEFAULT ('');
+		END
+
+		IF (@DatabaseVersion < 106)
+		BEGIN
+			ALTER TABLE u_Kapps_Keywords ADD KeywordType varchar(10) NOT NULL DEFAULT ('');
+
+			CREATE TABLE u_Kapps_QueriesDetails (
+				id int NOT NULL,
+				Keyword nvarchar(100) NULL,
+				Description nvarchar(200) NULL
+			);
+		END
+
+		IF (@DatabaseVersion < 107)
+		BEGIN
+			CREATE TABLE u_Kapps_InquiryAnswersDocGer(
+				id int IDENTITY(1,1) NOT NULL,
+				InquiryAnswersHeaderUniqueID nvarchar(100) NULL,
+				StampDocGer nvarchar(50) NULL,
+				KeyDocGer nvarchar(50) NULL
+			);
+		END
+
+		IF (@DatabaseVersion < 108)
+		BEGIN
+			ALTER TABLE u_Kapps_Labels ADD LinesPerPage int NOT NULL CONSTRAINT DF_u_Kapps_Labels_LinesPerPage DEFAULT (0);
+		END
+
+		IF (@DatabaseVersion < 109)
+		BEGIN
+			ALTER TABLE u_Kapps_Users ALTER COLUMN PasswordERP nvarchar(200);
+		END
+
+		IF (@DatabaseVersion < 110)
+		BEGIN
+			CREATE TABLE u_Kapps_ParametersMonitorsPanel(
+				id int IDENTITY(1,1) NOT NULL,
+				ApplicationID nvarchar(50) NOT NULL,
+				ConfigurationID int NOT NULL,
+				ParameterID nvarchar(50) NOT NULL,
+				ParameterValue nvarchar(MAX) NOT NULL
+			)  ON [PRIMARY];
+
+			CREATE TABLE u_Kapps_Reasons(
+				ReasonID int IDENTITY(1,1) NOT NULL,
+				ReasonDescription nvarchar(150) NOT NULL,
+				ReasonType nvarchar(20) NOT NULL
+			)  ON [PRIMARY];
+
+			DECLARE @ObjectName NVARCHAR(100);
+			SELECT @ObjectName = OBJECT_NAME([default_object_id]) FROM SYS.COLUMNS WHERE [object_id] = OBJECT_ID('u_Kapps_DossierLin') AND [name] = 'CabUserField1';
+			IF @ObjectName IS NOT NULL
+			BEGIN
+				EXEC ('ALTER TABLE u_Kapps_DossierLin DROP CONSTRAINT ' + @ObjectName);
+			END
+			SELECT @ObjectName = OBJECT_NAME([default_object_id]) FROM SYS.COLUMNS WHERE [object_id] = OBJECT_ID('u_Kapps_DossierLin') AND [name] = 'CabUserField2';
+			IF @ObjectName IS NOT NULL
+			BEGIN
+				EXEC ('ALTER TABLE u_Kapps_DossierLin DROP CONSTRAINT ' + @ObjectName);
+			END
+			SELECT @ObjectName = OBJECT_NAME([default_object_id]) FROM SYS.COLUMNS WHERE [object_id] = OBJECT_ID('u_Kapps_DossierLin') AND [name] = 'CabUserField3';
+			IF @ObjectName IS NOT NULL
+			BEGIN
+				EXEC ('ALTER TABLE u_Kapps_DossierLin DROP CONSTRAINT ' + @ObjectName);
+			END
+			SELECT @ObjectName = OBJECT_NAME([default_object_id]) FROM SYS.COLUMNS WHERE [object_id] = OBJECT_ID('u_Kapps_DossierLin') AND [name] = 'LinUserField1';
+			IF @ObjectName IS NOT NULL
+			BEGIN
+				EXEC ('ALTER TABLE u_Kapps_DossierLin DROP CONSTRAINT ' + @ObjectName);
+			END
+			SELECT @ObjectName = OBJECT_NAME([default_object_id]) FROM SYS.COLUMNS WHERE [object_id] = OBJECT_ID('u_Kapps_DossierLin') AND [name] = 'LinUserField2';
+			IF @ObjectName IS NOT NULL
+			BEGIN
+				EXEC ('ALTER TABLE u_Kapps_DossierLin DROP CONSTRAINT ' + @ObjectName);
+			END
+			SELECT @ObjectName = OBJECT_NAME([default_object_id]) FROM SYS.COLUMNS WHERE [object_id] = OBJECT_ID('u_Kapps_DossierLin') AND [name] = 'LinUserField3';
+			IF @ObjectName IS NOT NULL
+			BEGIN
+				EXEC ('ALTER TABLE u_Kapps_DossierLin DROP CONSTRAINT ' + @ObjectName);
+			END
+
+			ALTER TABLE u_Kapps_DossierLin ALTER COLUMN CabUserField1 varchar(max);
+			ALTER TABLE u_Kapps_DossierLin ALTER COLUMN CabUserField2 varchar(max);
+			ALTER TABLE u_Kapps_DossierLin ALTER COLUMN CabUserField3 varchar(max);
+			ALTER TABLE u_Kapps_DossierLin ALTER COLUMN LinUserField1 varchar(max);
+			ALTER TABLE u_Kapps_DossierLin ALTER COLUMN LinUserField2 varchar(max);
+			ALTER TABLE u_Kapps_DossierLin ALTER COLUMN LinUserField3 varchar(max);
+			ALTER TABLE u_Kapps_DossierLin ADD CONSTRAINT DF_u_Kapps_DossierLin_CabUserField1  DEFAULT ('') FOR CabUserField1;
+			ALTER TABLE u_Kapps_DossierLin ADD CONSTRAINT DF_u_Kapps_DossierLin_CabUserField2  DEFAULT ('') FOR CabUserField2;
+			ALTER TABLE u_Kapps_DossierLin ADD CONSTRAINT DF_u_Kapps_DossierLin_CabUserField3  DEFAULT ('') FOR CabUserField3;
+			ALTER TABLE u_Kapps_DossierLin ADD CONSTRAINT DF_u_Kapps_DossierLin_LinUserField1  DEFAULT ('') FOR LinUserField1;
+			ALTER TABLE u_Kapps_DossierLin ADD CONSTRAINT DF_u_Kapps_DossierLin_LinUserField2  DEFAULT ('') FOR LinUserField2;
+			ALTER TABLE u_Kapps_DossierLin ADD CONSTRAINT DF_u_Kapps_DossierLin_LinUserField3  DEFAULT ('') FOR LinUserField3;
+		END
+
+
 		--
 		-- Actualizar DATABASEVERSION
 		--
-		UPDATE u_Kapps_Parameters SET ParameterValue = @BackDBVersion WHERE UPPER(AppCode) = 'SYT' AND ParameterGroup='MAIN' and UPPER(ParameterID) = UPPER('DATABASEVERSION')
+		UPDATE u_Kapps_Parameters SET ParameterValue = @BackDBVersion WHERE UPPER(AppCode) = 'SYT' AND ParameterGroup='MAIN' and UPPER(ParameterID) = UPPER('DATABASEVERSION');
 
 	END
 
@@ -691,6 +896,6 @@ BEGIN
 		SET @descerro = @descerro + @ErrorMessage
 		RAISERROR (@ErrorMessage, @ErrorSeverity, @ErrorState)
 	END CATCH
-
+	SET XACT_ABORT OFF
 	SELECT @estado, @descerro
 END

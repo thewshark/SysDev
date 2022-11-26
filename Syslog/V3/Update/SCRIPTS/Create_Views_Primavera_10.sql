@@ -81,18 +81,10 @@ IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'[dbo].[v_Kapps
 DROP view [dbo].[v_Kapps_Barcodes]
 GO
 CREATE view [dbo].[v_Kapps_Barcodes] as 
-select cb.Artigo as Code, cb.CodBarras as Barcode, cb.Unidade as Unit,
-ISNULL((select ISNULL(uc.FactorConversao, 1) from UnidadesConversao uc (NOLOCK) WHERE uc.UnidadeOrigem = cb.Unidade and uc.UnidadeDestino = art.UnidadeBase),1) as Quantity
+select cb.Artigo as Code, cb.CodBarras as Barcode, cb.Unidade as Unit, CAST(1 as int) as Quantity
 from ArtigoCodBarras cb WITH(NOLOCK)
 JOIN Artigo art (NOLOCK) on art.Artigo = cb.Artigo
 where art.ArtigoAnulado = 0
-UNION ALL
-select art.Artigo as Code
-, art.CodBarras as Barcode
-, art.UnidadeBase as Unit
-, 1 as Quantity
-from Artigo art WITH(NOLOCK) 
-where art.ArtigoAnulado = 0 and art.TratamentoDim<>1
 GO
 
 
@@ -102,10 +94,10 @@ DROP view [dbo].[v_Kapps_Stock]
 GO
 CREATE view [dbo].[v_Kapps_Stock] as 
 select sa.Artigo as Article, sa.Armazem as Warehouse
-, sum(CASE WHEN sa.EstadoStock='RES' THEN sa.Stock WHEN sa.EstadoStock='DISP' and sa.Stock>0 THEN sa.Stock ELSE 0 END) as Stock
+, SUM(sa.Stock) as Stock
 , sa.Localizacao as Location
 , CASE WHEN sa.Lote <> '<L01>' THEN sa.Lote ELSE '' END AS Lote
-, SUM(sa.Stock) as AvailableStock					
+, SUM(CASE WHEN sa.EstadoStock='DISP' THEN sa.Stock ELSE 0 END) as AvailableStock					
 from INV_ValoresActuaisStock sa WITH(NOLOCK)
 join Artigo art (NOLOCK) on art.Artigo = sa.Artigo
 where art.ArtigoAnulado = 0 and art.TratamentoDim<>1
@@ -443,6 +435,20 @@ WHERE UC.UnidadeOrigem NOT IN
 	WHERE ARTUND.Artigo = art.Artigo  and ARTUND.FactorConversao > 0 and ARTUND.UnidadeDestino = art.UnidadeBase
 	)
 AND uc.FactorConversao > 0 and (UC.UnidadeOrigem = art.UnidadeVenda or UC.UnidadeOrigem = art.UnidadeCompra) and art.TratamentoDim<>1
+UNION 
+SELECT cb.Artigo as Code, cb.Unidade as Unit,
+ISNULL((select COALESCE(uc.FactorConversao, 1) from UnidadesConversao uc (NOLOCK) WHERE uc.UnidadeOrigem = cb.Unidade and uc.UnidadeDestino = art.UnidadeBase),1) as Quantity
+FROM ArtigoCodBarras cb WITH(NOLOCK)
+JOIN Artigo art (NOLOCK) on art.Artigo = cb.Artigo
+WHERE art.ArtigoAnulado = 0
+and cb.Unidade<>art.UnidadeBase
+and COALESCE(cb.Unidade,'')<>''
+and cb.Unidade not in
+	(
+	SELECT ARTUND.UnidadeOrigem 'Unit' 
+	FROM ArtigoUnidades ARTUND (NOLOCK) 
+	WHERE ARTUND.Artigo = art.Artigo  and ARTUND.FactorConversao > 0 and ARTUND.UnidadeDestino = art.UnidadeBase
+	)
 GO
 
 
@@ -540,7 +546,7 @@ Lin.QtdOriginal as 'Quantity',
 (select isnull(sum(u_Kapps_StockLines.Qty),0) from u_Kapps_StockLines (NOLOCK) where u_Kapps_StockLines.Status <> 'X' and u_Kapps_StockLines.Syncr = 'N'  and (u_Kapps_StockLines.OrigStampHeader=cast(Lin.IdCabecInventarios as varchar(255))) and (u_Kapps_StockLines.OrigStampLin=CAST(linDet.ID AS VARCHAR(255)) + '*' + CAST(LinDet.numlinha as varchar(15)) )) as 'QuantityPicked', 
 Lin.Unidade as 'BaseUnit',
 cab.Armazem as 'Warehouse',
-COALESCE(Lin.Localizacao.'') AS Location,
+COALESCE(Lin.Localizacao,'') AS Location,
 COALESCE(CASE WHEN Lin.Lote='<L01>' then '' ELSE Lin.Lote END,'') AS Lot,
 CAST(Lin.IdCabecInventarios as varchar(255)) as 'CabKey',
 '' as 'UserCol1',

@@ -80,15 +80,11 @@ GO
 CREATE view [dbo].[v_Kapps_Barcodes] as 
 select bc.strCodArtigo as Code, bc.strCodBarras as Barcode, '' as Unit, bc.fltQuantidade as Quantity
 from Tbl_Gce_ArtigosCodigoBarras bc WITH(NOLOCK)
-JOIN Tbl_Gce_Artigos art WITH(NOLOCK) on art.strCodigo = bc.strCodArtigo
+join Tbl_Gce_Artigos art WITH(NOLOCK) on art.strCodigo = bc.strCodArtigo
 where art.bitInactivo = 0
 UNION ALL
-SELECT art.strCodigo, art.strCodBarras, '' as Unit, 1 as Quantity
-FROM Tbl_Gce_Artigos art WITH(NOLOCK)
-where art.bitInactivo = 0 and art.strCodBarras<>''
-UNION ALL
-SELECT art.strCodigo, cast(art.intCodInterno as varchar(50)), '' as Unit, 1 as Quatity
-FROM Tbl_Gce_Artigos art WITH(NOLOCK)
+select art.strCodigo, cast(art.intCodInterno as varchar(50)), '' as Unit, -1 as Quantity -- Código interno não sugerir quantidade (-1)
+from Tbl_Gce_Artigos art WITH(NOLOCK)
 where art.bitInactivo = 0 and art.intCodInterno<>0
 GO
 

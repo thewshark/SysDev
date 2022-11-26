@@ -113,3 +113,14 @@ IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'v_Kapps_PickTr
 DROP view v_Kapps_PickTransf_Lines
 GO
 
+IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'v_Kapps_PalletTransf_Documents'))
+DROP view v_Kapps_PalletTransf_Documents
+GO
+
+IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'v_Kapps_PalletTransf_Lines'))
+DROP view v_Kapps_PalletTransf_Lines
+GO
+
+IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'v_Kapps_Stock_Status'))
+DROP view v_Kapps_Stock_Status
+GO

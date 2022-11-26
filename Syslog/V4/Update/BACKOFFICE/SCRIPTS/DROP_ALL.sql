@@ -6,7 +6,7 @@ DROP TABLE u_Kapps_Terminals
 GO
 
 IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'u_Kapps_Session_USers') AND type in (N'U'))
-DROP TABLE u_Kapps_Session_USers
+DROP TABLE u_Kapps_Session_Users
 GO
 
 IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'u_Kapps_Session_Docs') AND type in (N'U'))
@@ -281,6 +281,21 @@ IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'u_Kapps_Scal
 DROP TABLE u_Kapps_Scales
 GO
 
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'u_Kapps_QueriesDetails') AND type in (N'U'))
+DROP TABLE u_Kapps_QueriesDetails
+GO
+
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'u_Kapps_InquiryAnswersDocGer') AND type in (N'U'))
+DROP TABLE u_Kapps_InquiryAnswersDocGer
+GO
+
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'u_Kapps_ParametersMonitorsPanel') AND type in (N'U'))
+DROP TABLE u_Kapps_ParametersMonitorsPanel
+GO
+
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'u_Kapps_Reasons') AND type in (N'U'))
+DROP TABLE u_Kapps_Reasons
+GO
 
 --
 -- Drop Views
@@ -395,6 +410,18 @@ GO
 
 IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'v_Kapps_PickTransf_Lines'))
 DROP view v_Kapps_PickTransf_Lines
+GO
+
+IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'v_Kapps_PalletTransf_Documents'))
+DROP view v_Kapps_PalletTransf_Documents
+GO
+
+IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'v_Kapps_PalletTransf_Lines'))
+DROP view v_Kapps_PalletTransf_Lines
+GO
+
+IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'v_Kapps_Stock_Status'))
+DROP view v_Kapps_Stock_Status
 GO
 
 --
@@ -580,10 +607,18 @@ IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SP_u_Kapps_S
 DROP PROCEDURE SP_u_Kapps_SSCC_NextNumberUSR
 GO
 
-IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'u_Kapps_Queries') AND type in (N'U'))
-DROP TABLE u_Kapps_Queries
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SP_u_Kapps_UpdateStatus') AND type in (N'P', N'PC'))
+DROP PROCEDURE SP_u_Kapps_UpdateStatus
 GO
 
-IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'u_Kapps_ExpirationDates') AND type in (N'U'))
-DROP TABLE u_Kapps_ExpirationDates
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SP_u_Kapps_CheckUserPermission') AND type in (N'P', N'PC'))
+DROP PROCEDURE SP_u_Kapps_CheckUserPermission
+GO
+
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SP_u_Kapps_UpdateLine') AND type in (N'P', N'PC'))
+DROP PROCEDURE SP_u_Kapps_UpdateLine
+GO
+
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SP_u_Kapps_InsertLot') AND type in (N'P', N'PC'))
+DROP PROCEDURE SP_u_Kapps_InsertLot
 GO

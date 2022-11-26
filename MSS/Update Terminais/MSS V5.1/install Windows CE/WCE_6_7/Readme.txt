@@ -1,0 +1,1 @@
+This DLLs need to be manually copyed to MSS folders where there are EXEs for Windows CE 6 and 7

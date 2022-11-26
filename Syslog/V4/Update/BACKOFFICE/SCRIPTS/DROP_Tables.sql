@@ -6,7 +6,7 @@ DROP TABLE u_Kapps_Terminals
 GO
 
 IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'u_Kapps_Session_USers') AND type in (N'U'))
-DROP TABLE u_Kapps_Session_USers
+DROP TABLE u_Kapps_Session_Users
 GO
 
 IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'u_Kapps_Session_Docs') AND type in (N'U'))
@@ -279,4 +279,20 @@ GO
 
 IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'u_Kapps_Scales') AND type in (N'U'))
 DROP TABLE u_Kapps_Scales
+GO
+
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'u_Kapps_QueriesDetails') AND type in (N'U'))
+DROP TABLE u_Kapps_QueriesDetails
+GO
+
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'u_Kapps_InquiryAnswersDocGer') AND type in (N'U'))
+DROP TABLE u_Kapps_InquiryAnswersDocGer
+GO
+
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'u_Kapps_ParametersMonitorsPanel') AND type in (N'U'))
+DROP TABLE u_Kapps_ParametersMonitorsPanel
+GO
+
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'u_Kapps_Reasons') AND type in (N'U'))
+DROP TABLE u_Kapps_Reasons
 GO

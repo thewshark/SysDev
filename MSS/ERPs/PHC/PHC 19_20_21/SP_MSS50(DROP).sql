@@ -1,0 +1,96 @@
+DROP FUNCTION [dbo].[DateToString]
+GO
+DROP FUNCTION [dbo].[SetString]
+GO
+DROP FUNCTION [dbo].[EurToEsc]
+GO
+DROP FUNCTION [dbo].[ExtractFromACL]
+GO
+DROP FUNCTION [dbo].[StringToDate]
+GO
+DROP FUNCTION [dbo].[StringToNum]
+GO
+DROP FUNCTION [dbo].[TimeToString]
+GO
+DROP PROCEDURE [dbo].[SPMSS_CalcDescontos]
+GO
+DROP PROCEDURE [dbo].[SPMSS_CheckCliente]
+GO
+DROP PROCEDURE [dbo].[SPMSS_CheckLote]
+GO
+DROP PROCEDURE [dbo].[SPMSS_GetArtInfo]
+GO
+DROP PROCEDURE [dbo].[SPMSS_GetArtPCusto]
+GO
+DROP PROCEDURE [dbo].[SPMSS_GetCCInfo]
+GO
+DROP PROCEDURE [dbo].[SPMSS_GetCliInfo]
+GO
+DROP PROCEDURE [dbo].[SPMSS_GetCliInfo2]
+GO
+DROP PROCEDURE [dbo].[SPMSS_GetCondVend]
+GO
+DROP PROCEDURE [dbo].[SPMSS_GetDadosDoc]
+GO
+DROP PROCEDURE [dbo].[SPMSS_GetDadosRec]
+GO
+DROP PROCEDURE [dbo].[SPMSS_GetDocOrigStamp]
+GO
+DROP PROCEDURE [dbo].[SPMSS_GetTabIva]
+GO
+DROP PROCEDURE [dbo].[SPMSS_GetTabIvaFromDoc]
+GO
+DROP PROCEDURE [dbo].[SPMSS_GetTaxaIva]
+GO
+DROP PROCEDURE [dbo].[SPMSS_GetCorTamanho]
+GO
+DROP PROCEDURE [dbo].[SPMSS_GetVendNome]
+GO
+DROP PROCEDURE [dbo].[SPMSS_Clientes]
+GO
+DROP PROCEDURE [dbo].[SPMSS_Estabelecimentos]
+GO
+DROP PROCEDURE [dbo].[SPMSS_DocDocFactLin]
+GO
+DROP PROCEDURE [dbo].[SPMSS_DocDocFactIVAs]
+GO
+DROP PROCEDURE [dbo].[SPMSS_DocDocFact]
+GO
+DROP PROCEDURE [dbo].[SPMSS_DocDossInternLin]
+GO
+DROP PROCEDURE [dbo].[SPMSS_DocFactMultiIVAs]
+GO
+DROP PROCEDURE [dbo].[SPMSS_DocPag]
+GO
+DROP PROCEDURE [dbo].[SPMSS_DocDossInternIVAs]
+GO
+DROP PROCEDURE [dbo].[SPMSS_DocDossIntern]
+GO
+DROP PROCEDURE [dbo].[SPMSS_Docs]
+GO
+DROP PROCEDURE [dbo].[SPMSS_ReciboLinIVAs]
+GO
+DROP PROCEDURE [dbo].[SPMSS_ReciboLin]
+GO
+DROP PROCEDURE [dbo].[SPMSS_ReciboPag]
+GO
+DROP PROCEDURE [dbo].[SPMSS_Recibo]
+GO
+DROP PROCEDURE [dbo].[SPMSS_DocDocComprasLin]
+GO
+DROP PROCEDURE [dbo].[SPMSS_DocDocComprasIVAs]
+GO
+DROP PROCEDURE [dbo].[SPMSS_DocDocCompras]
+GO
+DROP PROCEDURE [dbo].[SPMSS_GetForInfo]
+GO
+DROP PROCEDURE [dbo].[SPMSS_Fornecedores]
+GO
+DROP PROCEDURE [dbo].[SPMSS_CheckFornecedor]
+GO
+DROP PROCEDURE [dbo].[SPMSS_Prospects]
+GO
+DROP PROCEDURE [dbo].[SPMSS_CheckProspect]
+GO 
+DROP PROCEDURE [dbo].[SPMSS_Integra]
+GO

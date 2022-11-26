@@ -1,7 +1,7 @@
 /*
 SCRIPT DE INTEGRAÇÃO
 VERSÃO 4.0.0 
-SCRIPT VERSION 52
+SCRIPT VERSION 59
 */
 
 IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'u_Kapps_DateToString') AND type in (N'FN', N'IF', N'TF', N'FS', N'FT'))
@@ -94,82 +94,7 @@ GO
 
 
 IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SP_u_Kapps_Login') AND type in (N'P', N'PC'))
-DROP PROCEDURE SP_u_Kapps_Login
-GO
-CREATE PROCEDURE SP_u_Kapps_Login
-      @user VARCHAR(50)
-AS
-BEGIN
-	SET NOCOUNT ON;
-
-	BEGIN TRY
-		DECLARE @ErrorMessage NVARCHAR(4000)
-		DECLARE @ErrorSeverity INT
-		DECLARE @ErrorState INT
-
-		DECLARE @strlogin varchar(50)
-		DECLARE @strNome varchar(50)
-		DECLARE @ERP VARCHAR(25)
-		DECLARE @TBLOGIN TABLE (strlogin varchar(50), strNome varchar(50))
-		DECLARE @BDSistema VARCHAR(25)
-		SET @strlogin = ''
-		SET @strNome = ''
-		SET @ERP = ''
-
-		SELECT @ERP=ParameterValue FROM u_Kapps_Parameters WITH(NOLOCK) WHERE ParameterGroup='MAIN' and ParameterID = 'ERP' 
-
-		IF (upper(@ERP) = 'ETICADATA_16/17/18/19')
-		BEGIN
-			SELECT @BDSistema = ParameterValue FROM u_Kapps_Parameters WITH(NOLOCK) WHERE ParameterGroup='MAIN' and Upper(ParameterID) = Upper('BD_Sistema')
-			INSERT @TBLOGIN(strlogin,strNome) exec ('select strlogin, strnome from ' + @BDSistema + '..Tbl_Utilizadores WITH(NOLOCK) where strlogin = ''' + @user + '''')
-		END
-
-		ELSE IF (upper(@ERP) = 'PRIMAVERA')
-		BEGIN
-			SELECT @BDSistema = ParameterValue FROM u_Kapps_Parameters WITH(NOLOCK) WHERE ParameterGroup='MAIN' and Upper(ParameterID) = Upper('BD_Empresas')
-			INSERT @TBLOGIN(strlogin,strNome) exec ('SELECT Codigo, CASE WHEN Nome = '''' THEN Codigo ELSE Nome END FROM ' + @BDSistema + '..Utilizadores WITH(NOLOCK) WHERE Codigo = ''' + @user + '''')
-		END
-
-		ELSE IF (upper(@ERP) = 'PHC')
-		BEGIN
-			INSERT @TBLOGIN(strlogin,strNome) exec ('SELECT usercode, CASE WHEN username = '''' THEN usercode ELSE username END FROM us WITH(NOLOCK) WHERE usercode = ''' + @user + '''')
-		END
-
-		ELSE IF (upper(@ERP) = 'SAGE_50C')
-		BEGIN
-			INSERT @TBLOGIN(strlogin,strNome) exec ('SELECT AppUserName, AppUserName FROM AppUsers WITH(NOLOCK) WHERE AppUserName = ''' + @user + '''')
-		END
-
-		ELSE IF (upper(@ERP) = 'SAGE_100C')
-		BEGIN
-			INSERT @TBLOGIN(strlogin,strNome) VALUES(@user,@user)
-		END
-
-		ELSE IF (upper(@ERP) = 'SENDYS')
-		BEGIN
-			--INSERT @TBLOGIN(strlogin,strNome) exec ('SELECT utilizador, nome FROM utilizadores WITH(NOLOCK) WHERE utilizador = ''' + @user + '''')
-			INSERT @TBLOGIN(strlogin,strNome) VALUES(@user,@user)
-		END
-
-		ELSE IF (upper(@ERP) = 'PERSONALIZADO')
-		BEGIN
-			INSERT @TBLOGIN(strlogin,strNome) VALUES('','')
-		END
-		ELSE 
-		BEGIN
-			RAISERROR ('O ERP não está definido, alterar a configuração do driver', 16,1)
-		END
-
-		SELECT TOP 1 @strNome = strNome, @strlogin = strlogin from @TBLOGIN
-		SELECT @strNome, @strlogin 
-
-	END TRY
-	BEGIN CATCH
-		SELECT @ErrorMessage = ERROR_MESSAGE(), @ErrorSeverity = ERROR_SEVERITY(), @ErrorState = ERROR_STATE()
- 
-		RAISERROR (@ErrorMessage, @ErrorSeverity, @ErrorState)
-	END CATCH
-END
+DROP PROCEDURE SP_u_Kapps_Login 	-- Foi Eliminada
 GO
 
 
@@ -180,13 +105,13 @@ BEGIN
 END
 GO
 CREATE PROCEDURE SP_u_Kapps_ProductPriceUSR
-	  @REFERENCIA CHAR(40),		--	REFERENCIA DO ARTIGO
-	  @Lot VARCHAR(50),			--	LOTE DO ARTIGO
-	  @ARMAZEM VARCHAR(50),		--	ARMAZÉM
-	  @NRSERIE VARCHAR(50),		--	NÚMERO DE SÉRIE
-	  @QTD DECIMAL(20,7),		--	QUANTIDADE
-	  @CLIENTE VARCHAR(50),		--	CLIENTE
-	  @EVENTO INT				--	1(PICKING) OU 2(RECEPCAO) OU 3(PACKING) OU 4(OUTROS) OU 5(CONTAGEM) OU 6(CONSULTA STOCKS)
+	@REFERENCIA CHAR(40),		--	REFERENCIA DO ARTIGO
+	@Lot VARCHAR(50),			--	LOTE DO ARTIGO
+	@ARMAZEM VARCHAR(50),		--	ARMAZÉM
+	@NRSERIE VARCHAR(50),		--	NÚMERO DE SÉRIE
+	@QTD DECIMAL(20,7),		--	QUANTIDADE
+	@CLIENTE VARCHAR(50),		--	CLIENTE
+	@EVENTO INT				--	1(PICKING) OU 2(RECEPCAO) OU 3(PACKING) OU 4(OUTROS) OU 5(CONTAGEM) OU 6(CONSULTA STOCKS)
 AS
 BEGIN
 	SET NOCOUNT ON;
@@ -269,9 +194,9 @@ IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SP_u_Kapps_B
 DROP PROCEDURE SP_u_Kapps_BarCode
 GO
 CREATE PROCEDURE SP_u_Kapps_BarCode
-      @REF VARCHAR(40),
-	  @BARCODE VARCHAR(40),
-	  @QUANTITY INT
+    @REF VARCHAR(40),
+	@BARCODE VARCHAR(40),
+	@QUANTITY INT
 AS
 BEGIN
 	SET NOCOUNT ON;
@@ -425,13 +350,13 @@ BEGIN
 END
 GO
 CREATE PROCEDURE SP_u_Kapps_DossiersUSR
-	@DocTipo CHAR(5),			-- Tipo do documento da aplicação (DCO ou DSO)
+	@DocTipo CHAR(5),					-- Tipo do documento da aplicação (DCO ou DSO)
 	@InternalStampDoc NVARCHAR(50),		-- Stamp do documento
-	@ndos VARCHAR(50),			-- Tipo de dossier de destino
-	@fecha CHAR(5),				-- Se encerra o documento de origem
-	@bostamp CHAR(25),			-- Stamp do documento criado
-	@terminal CHAR(5),			-- Terminal que está a sincronizar	
-	@ParameterGroup CHAR(100),		-- Processo que está a sincronizar
+	@ndos VARCHAR(50),					-- Tipo de dossier de destino
+	@fecha CHAR(5),						-- Se encerra o documento de origem
+	@bostamp CHAR(25),					-- Stamp do documento criado
+	@terminal CHAR(5),					-- Terminal que está a sincronizar	
+	@ParameterGroup CHAR(100),			-- Processo que está a sincronizar
 	@ExpeditionWarehouse NVARCHAR(50),	-- Armazem de expedição
 	@ExpeditionLocation NVARCHAR(50),	-- Localização de expedição
 	@estadoUSR varchar(3) OUTPUT,		-- Codigo erro
@@ -824,7 +749,15 @@ BEGIN
 	DECLARE @rescli BIT
 	DECLARE @ocupacao INT
 	DECLARE @TipoProcesso VARCHAR(50)
+	DECLARE @ManterNumeracao BIT
 
+	DECLARE @LocationOUT NVARCHAR(50)	
+	DECLARE @SSCC NVARCHAR(50)	
+	DECLARE @oldLocation NVARCHAR(50)
+	DECLARE @oldLocationOut NVARCHAR(50)
+	DECLARE @CustomerNumber NVARCHAR(50)
+	DECLARE @IsCustomerInternal BIT
+	
 	SET @ArtigodeServicos = 0
 	SET @estado = 'NOK'
 	SET @descerro = 'Não foi gerado nenhum documento'
@@ -832,27 +765,84 @@ BEGIN
 	SET @lordem = 0
 	SET @ivaincl = 0
 	SET @rescli = 0
-
+	SET @ManterNumeracao=1
+	SET @TipoProcesso=''
+	SET @WarehouseOUT=''
+	SET @LocationOUT=''
+	SET @oldLocation=''
+	SET @oldLocationOut=''
+	SET @CustomerNumber=''
+	SET @IsCustomerInternal=0
+	
 	SELECT @ERP = ISNULL(ParameterValue, '') from u_Kapps_Parameters WITH(NOLOCK) where ParameterGroup='MAIN' and ParameterId = 'ERP'
+	SELECT @TipoProcesso=UPPER(TypeID) FROM u_Kapps_Processes WHERE ProcessID=@ParameterGroup
+	
+	BEGIN TRY
+	BEGIN TRANSACTION
+
  
-	IF (@integra = '0')
+	IF (@integra = '0') AND (UPPER(@DocTipo) <> 'DSO') AND (UPPER(@DocTipo) <> 'DCO') 
 	BEGIN
-		SET @estado = 'OK'
-		SET @descerro = 'Documento não integrado conforme configuração no backoffice'
-		IF (@DocTipo = 'DSO')
-			UPDATE u_Kapps_DossierLin SET Integrada = 'S', Status = 'F' WHERE InternalStampDoc = @InStampDoc AND Integrada = 'N' AND Status <> 'X'
-		ELSE IF (@DocTipo = 'DCO')
-			UPDATE u_Kapps_DossierLin SET Integrada = 'S', Status = 'F' WHERE StampBO = @InStampDoc AND Integrada = 'N' AND Status <> 'X'
-		ELSE
+		SET @estado = 'NOK'
+		SET @descerro = 'O tipo de documento não é valido'
+	END
+	ELSE IF (@integra = '0')
+	BEGIN
+		IF @TipoProcesso in ('PICKTRANSF', 'TRANSF')
 		BEGIN
-			SET @estado = 'NOK'
-			SET @descerro = 'Não foi gerado nenhum documento'
+			SELECT TOP 1 @WarehouseOUT=WarehouseOut, @LocationOUT=LocationOut FROM u_Kapps_DossierLin WHERE StampBO = @InStampDoc AND Integrada = 'N' AND Status = 'A'
+	
+			UPDATE u_Kapps_PackingHeader SET CurrentWarehouse=@WarehouseOut, CurrentLocation=@LocationOut
+			WHERE SSCC in (SELECT SSCC FROM u_Kapps_DossierLin WHERE StampBO = @InStampDoc AND Integrada = 'N' AND Status = 'A' AND RTRIM(LTRIM(SSCC))<>'')
 		END
+
+		IF (@DocTipo = 'DSO')
+		BEGIN
+			SELECT TOP 1 @CustomerNumber=EntityNumber, @EntityType=EntityType FROM u_Kapps_DossierLin WHERE InternalStampDoc = @InStampDoc AND Integrada = 'N' AND Status = 'A'
+		END
+		ELSE IF (@DocTipo = 'DCO')
+		BEGIN
+			SELECT TOP 1 @CustomerNumber=EntityNumber, @EntityType=EntityType FROM u_Kapps_DossierLin WHERE StampBO = @InStampDoc AND Integrada = 'N' AND Status = 'A'
+		END
+		
+		-- Atualizar estado das paletes 
+		IF @TipoProcesso IN ('PICKING','PACKING') AND RTRIM(LTRIM(@CustomerNumber))<>'' and ((@EntityType = 'C') OR (@EntityType = 'CL'))
+		BEGIN
+			SELECT @IsCustomerInternal = COALESCE(InternalCustomer,0) FROM v_Kapps_Customers WHERE Code=@CustomerNumber
+			IF @IsCustomerInternal=0
+			BEGIN
+				IF (@DocTipo = 'DSO')
+				BEGIN
+					UPDATE u_Kapps_PackingHeader SET PackStatus=3 WHERE RTRIM(LTRIM(SSCC))<>'' AND SSCC IN (SELECT SSCC FROM u_Kapps_DossierLin WHERE InternalStampDoc = @InStampDoc AND Integrada = 'N' AND Status = 'A' AND RTRIM(LTRIM(SSCC))<>'')
+				END
+				ELSE IF (@DocTipo = 'DCO')
+				BEGIN
+					UPDATE u_Kapps_PackingHeader SET PackStatus=3 WHERE RTRIM(LTRIM(SSCC))<>'' AND SSCC IN (SELECT SSCC FROM u_Kapps_DossierLin WHERE StampBO = @InStampDoc AND Integrada = 'N' AND Status = 'A' AND RTRIM(LTRIM(SSCC))<>'')
+				END
+			END
+		END
+
+		FETCH NEXT FROM curKappsDossiers INTO @StampLin,@StampBo,@StampBi,@Ref,@Description,@Qty,@Lot,@Serial,@UserID,@MovDate,@MovTime,@Status,@DocType,@DocNumber,@Integrada,@DataIntegracao,@HoraIntegracao,@UserIntegracao,@Validade,@Warehouse,@Location,@ExternalDocNum,@EntityType,@EntityNumber,@InternalStampDoc,@DestinationDocType, @VatNumber, @UnitPrice, @WarehouseOut, @LocationOut, @OriLineNumber, @QtyUM, @Qty2, @Qty2UM, @descarga, @Peso, @SSCC
+
 
 		IF (upper(@ERP) = 'PHC')
 		BEGIN
 			EXECUTE SP_u_Kapps_DossiersUSR  @DocTipo, @InStampDoc, @ndos, @fecha, @NewBoStamp, @terminal, @ParameterGroup, @InUserIntegracao, @ExpeditionWarehouse, @ExpeditionLocation, @estado OUTPUT, @descerro OUTPUT
 		END
+
+		IF (@DocTipo = 'DSO')
+		BEGIN
+			UPDATE u_Kapps_DossierLin SET Integrada = 'S', Status = 'F' WHERE InternalStampDoc = @InStampDoc AND Integrada = 'N' AND Status = 'A'
+			SET @estado = 'OK'
+			SET @descerro = 'Documento não integrado conforme configuração no backoffice'
+		END
+		ELSE IF (@DocTipo = 'DCO')
+		BEGIN
+			UPDATE u_Kapps_DossierLin SET Integrada = 'S', Status = 'F' WHERE StampBO = @InStampDoc AND Integrada = 'N' AND Status = 'A'
+			SET @estado = 'OK'
+			SET @descerro = 'Documento não integrado conforme configuração no backoffice'
+		END
+
 	END
 	ELSE
 	BEGIN
@@ -863,8 +853,6 @@ BEGIN
 		END
 		ELSE
 		BEGIN
-			BEGIN TRY
-			BEGIN TRANSACTION
 
 			SET @totaldeb = 0
 			SET @etotaldeb = 0
@@ -909,9 +897,7 @@ BEGIN
 			SET @PesoFinal = 0
 			SET @UseWeight = 0
 
-			DECLARE @ORDERBY VARCHAR(255)
 			DECLARE @ORDERPARAMETER VARCHAR(5)
-			SET @ORDERBY = ' StampLin'
 			SET @ORDERPARAMETER = ''
 
 			SELECT @ORDERPARAMETER = par.ParameterValue FROM u_Kapps_Parameters par  WITH(NOLOCK) WHERE par.APPCODE = @APPCODE AND par.ParameterGroup = @ParameterGroup and par.ParameterID = 'ORDER_INTEGRATION'
@@ -951,25 +937,27 @@ BEGIN
 					ISNULL(VatNumber, ''), 
 					ISNULL(UnitPrice, 0),
 					ISNULL(WarehouseOut, '0'),
+					ISNULL(LocationOut, ''),
 					ISNULL(OriLineNumber, 0),
 					ISNULL(QtyUM, '') as QtyUM, 
 					ISNULL(Qty2, 0) as Qty2, 
 					ISNULL(Qty2UM, '') as QtyUM2,
 					ISNULL(DeliveryCode, ''),
-					ISNULL(NetWeight, 0)
+					ISNULL(NetWeight, 0),
+					ISNULL(SSCC, '')
 
 					FROM u_Kapps_DossierLin WITH(NOLOCK) 
-					WHERE (((InternalStampDoc = @InStampDoc) AND (('DSO' = @DocTipo) OR ('DCP' = @DocTipo))) OR ((StampBo = @InStampDoc) AND ('DCO' = @DocTipo))) AND Integrada = 'N' AND status <> 'X' 
+					WHERE (((InternalStampDoc = @InStampDoc) AND (('DSO' = @DocTipo) OR ('DCP' = @DocTipo))) OR ((StampBo = @InStampDoc) AND ('DCO' = @DocTipo))) AND Integrada = 'N' AND Status = 'A' 
 					--GROUP BY StampLin, StampBo, StampBi, Ref, Description,Lot,Serial,UserID,MovDate,MovTime,Status,DocType,DocNumber,Integrada,DataIntegracao,HoraIntegracao,UserIntegracao,Validade,Warehouse,Location,ExternalDocNum,EntityType,EntityNumber,InternalStampDoc,DestinationDocType,VatNumber,UnitPrice,WarehouseOut,OriLineNumber
 					ORDER BY CASE @ORDERPARAMETER WHEN '1' THEN CAST(OriLineNumber as varchar(50)) WHEN '2' THEN Ref WHEN '3' THEN Description ELSE StampLin  END, MovDate, MovTime 
  
 					OPEN curKappsDossiers
  
-						FETCH NEXT FROM curKappsDossiers INTO @StampLin,@StampBo,@StampBi,@Ref,@Description,@Qty,@Lot,@Serial,@UserID,@MovDate,@MovTime,@Status,@DocType,@DocNumber,@Integrada,@DataIntegracao,@HoraIntegracao,@UserIntegracao,@Validade,@Warehouse,@Location,@ExternalDocNum,@EntityType,@EntityNumber,@InternalStampDoc,@DestinationDocType, @VatNumber, @UnitPrice, @WarehouseOut, @OriLineNumber, @QtyUM, @Qty2, @Qty2UM, @descarga, @Peso
+					FETCH NEXT FROM curKappsDossiers INTO @StampLin,@StampBo,@StampBi,@Ref,@Description,@Qty,@Lot,@Serial,@UserID,@MovDate,@MovTime,@Status,@DocType,@DocNumber,@Integrada,@DataIntegracao,@HoraIntegracao,@UserIntegracao,@Validade,@Warehouse,@Location,@ExternalDocNum,@EntityType,@EntityNumber,@InternalStampDoc,@DestinationDocType, @VatNumber, @UnitPrice, @WarehouseOut, @LocationOut, @OriLineNumber, @QtyUM, @Qty2, @Qty2UM, @descarga, @Peso, @SSCC
              
 					WHILE @@FETCH_STATUS = 0 BEGIN
                     
-						IF (@oldStampBo = @StampBo AND @oldStampBi = @StampBi AND @oldRef = @Ref AND @oldLot = @Lot AND @oldWarehouse = @Warehouse AND @oldWarehouseOut = @WarehouseOut AND @oldSerial = @Serial)
+						IF (@oldStampBo = @StampBo AND @oldStampBi = @StampBi AND @oldRef = @Ref AND @oldLot = @Lot AND @oldWarehouse = @Warehouse AND @oldWarehouseOut = @WarehouseOut AND @oldSerial = @Serial AND @oldLocation = @Location AND @oldLocationOut = @LocationOut ) 
 						BEGIN
 							SET @QtyFinal = @QtyFinal + @Qty
 							SET @PesoFinal = @PesoFinal + @Peso
@@ -987,6 +975,7 @@ BEGIN
 							SET @Qty = @Peso
 						END
 					
+						SET @CustomerNumber = @EntityNumber
 
 						SET @lordem = @lordem + 1
  
@@ -1055,7 +1044,16 @@ BEGIN
 							SELECT @nmdos = ISNULL(nmdos, ''), @rescli = rescli , @ocupacao = ocupacao from ts WITH(NOLOCK) where ndos = CAST(@ndos AS int)
  
 							-- novo numero do dossier
-							select @obrano = (ISNULL(MAX(obrano),0) + 1) from bo WHERE NDOS = CAST(@ndos AS int)
+							SELECT @ManterNumeracao = COALESCE(manternumero, cast(0 as bit)) from ts2 (nolock) join ts (nolock) on ts.tsstamp=ts2.ts2stamp where ts.ndos = @ndos
+
+							IF @ManterNumeracao=1
+							BEGIN
+								select @obrano = (COALESCE(MAX(obrano),0) + 1) from bo WHERE ndos = CAST(@ndos AS int)
+							END
+							ELSE
+							BEGIN
+								select @obrano = (COALESCE(MAX(obrano),0) + 1) from bo WHERE ndos = CAST(@ndos AS int) AND YEAR(bo.dataobra) = YEAR(GETDATE())
+							END
  
 							IF ((@DocTipo = 'DSO') OR (@DocTipo = 'DCP')) -- vai buscar os dados do terceiro 
 							BEGIN
@@ -1090,13 +1088,10 @@ BEGIN
 							END
 							ELSE
 							BEGIN
-                              
 								SELECT @EntNome = nome, @EntMorada = morada, @EntLocal = local, @EntCPostal = codpost, @EntityNumber = no, @EntMoeda = moeda, @EntNCont = ncont, @EntTipo = tipo, @EntZona = zona, @EntSegmento = segmento, @fref = fref, @ccusto = ccusto, @estab = estab FROM bo WITH(NOLOCK) WHERE bostamp = @StampBo
 							END
  
-							SELECT @TipoProcesso=TypeID FROM u_Kapps_Processes WHERE ProcessID=@ParameterGroup
-
-							IF (@TipoProcesso<>'PICKTRANSF')
+							IF @TipoProcesso<>'PICKTRANSF'
 							BEGIN
 								IF ((@DocTipo = 'DCO') AND (@WarehouseOut <> '') AND (@WarehouseOut <> @Warehouse))
 								BEGIN
@@ -1131,18 +1126,7 @@ BEGIN
 						-- se não existir o lote tem de se criar
 						IF @Lot <> ''
 						BEGIN
-							IF (SELECT COUNT(*) FROM se  WITH(NOLOCK) WHERE ref = @Ref AND lote = @Lot) = 0
-							BEGIN  
-								WAITFOR DELAY '00:00:00.200'
-								SET @DateTimeTmp = GETDATE()
-								SET @DateStr = dbo.u_Kapps_DateToString(@DateTimeTmp)
-								SET @TimeStr = dbo.u_Kapps_TimeToString(@DateTimeTmp)
- 
-								SET @sestamp = 'Syslog_' + @DateStr + @TimeStr
-                                    
-								INSERT INTO se (sestamp, ref, lote, design, data, validade, ousrinis, ousrdata, ousrhora, usrinis, usrdata, usrhora) 
-									VALUES (@sestamp, @ref, @Lot, @Description, @DateStr, @validade, @ousrinis, @ousrdata, @ousrhora, @usrinis, @usrdata, @usrhora)
-							END
+							EXECUTE SP_u_Kapps_InsertLot @Lot, @ref, @Description, '', @validade, @UserID
 							SET @usalote = 1
 						END
 						ELSE
@@ -1222,18 +1206,6 @@ BEGIN
 						--SET @ecusto = @ecusto + ROUND((@Qty * @epcusto), @predec)   
 						SET @ecusto = @ecusto + (@Qty * @epcusto)
 
-						--IF ((@DocTipo = 'DCO') AND (@StampBi <> '')) -- atualiza a quantidade de origem
-						--BEGIN
-							--IF (@eslvu = 0)
-							--	SET @eslvu = @edebito
-							--IF (@slvu = 0)
-							--	SET @slvu = @debito
-							--IF (@esltt = 0)
-							--	SET @esltt = @ettdeb
-							--IF (@sltt = 0)
-							--	SET @sltt = @ttdeb
-						--END
-
 						IF (@tabiva = 1)
 						BEGIN
 							SET @iva1 = @iva
@@ -1289,9 +1261,9 @@ BEGIN
 							UPDATE u_Kapps_DossierLin SET Integrada = 'S', Status = 'F', DataIntegracao = @DateStr, HoraIntegracao = SUBSTRING(@TimeStr,1,6), UserIntegracao=@InUserIntegracao, StampDocGer = RIGHT(@NEWnmdos + ' ' + CAST(@NEWobrano AS VARCHAR),50), KeyDocGerado=@NewBoStamp WHERE StampLin = @StampLin
                        
 							IF (@DocTipo = 'DCO')
-								EXECUTE SP_u_Kapps_DossiersLinUSR  @DocTipo, @StampBo, @ndos, @fecha, @NewBoStamp, @StampLin, @Ref, @lordem    
+								EXECUTE SP_u_Kapps_DossiersLinUSR  @DocTipo, @StampBo, @ndos, @fecha, @NewBoStamp, @StampLin, @Ref, @lordem, @StampBi
 							ELSE
-								EXECUTE SP_u_Kapps_DossiersLinUSR  @DocTipo, @InternalStampDoc, @ndos, @fecha, @NewBoStamp, @StampLin, @Ref, @lordem    
+								EXECUTE SP_u_Kapps_DossiersLinUSR  @DocTipo, @InternalStampDoc, @ndos, @fecha, @NewBoStamp, @StampLin, @Ref, @lordem , ''   
 							
 							SET @StampFinalLinha = @StampLin
 							SET @lordemFinal = @lordem 						
@@ -1316,12 +1288,12 @@ BEGIN
 								UPDATE bi set fechada = (CASE WHEN qtt <= qtt2 THEN 1 ELSE 0 END) WHERE bistamp = @StampBi
 							END
 							-- coloca o documento como integrado
-							UPDATE u_Kapps_DossierLin SET Integrada = 'S', Status = 'F', DataIntegracao = @DateStr, HoraIntegracao = SUBSTRING(@TimeStr,1,6), UserIntegracao=@InUserIntegracao, StampDocGer = RIGHT(@NEWnmdos + '' + CAST(@NEWobrano AS VARCHAR),50), KeyDocGerado=@NewBoStamp WHERE StampLin = @StampLin
-                        
+							UPDATE u_Kapps_DossierLin SET Integrada = 'S', Status = 'F', DataIntegracao = @DateStr, HoraIntegracao = SUBSTRING(@TimeStr,1,6), UserIntegracao=@InUserIntegracao, StampDocGer = RIGHT(@NEWnmdos + ' ' + CAST(@NEWobrano AS VARCHAR),50), KeyDocGerado=@NewBoStamp WHERE StampLin = @StampLin
+
 							IF (@DocTipo = 'DCO')
-								EXECUTE SP_u_Kapps_DossiersLinUSR  @DocTipo, @StampBo, @ndos, @fecha, @NewBoStamp, @StampFinalLinha, @Ref, @lordemFinal    
+								EXECUTE SP_u_Kapps_DossiersLinUSR  @DocTipo, @StampBo, @ndos, @fecha, @NewBoStamp, @StampFinalLinha, @Ref, @lordemFinal, @StampBi
 							ELSE
-								EXECUTE SP_u_Kapps_DossiersLinUSR  @DocTipo, @InternalStampDoc, @ndos, @fecha, @NewBoStamp, @StampFinalLinha, @Ref, @lordemFinal    
+								EXECUTE SP_u_Kapps_DossiersLinUSR  @DocTipo, @InternalStampDoc, @ndos, @fecha, @NewBoStamp, @StampFinalLinha, @Ref, @lordemFinal, ''
 					
 						END
 						SET @oldStampBo = @StampBo
@@ -1330,72 +1302,93 @@ BEGIN
 						SET @oldLot = @Lot
 						SET @oldWarehouse = @Warehouse
 						SET @oldWarehouseOut = @WarehouseOut
+						SET @oldLocation = @Location
+						SET @oldLocationOut = @LocationOut
 						SET @oldSerial = @Serial
-
-						FETCH NEXT FROM curKappsDossiers INTO @StampLin,@StampBo,@StampBi,@Ref,@Description,@Qty,@Lot,@Serial,@UserID,@MovDate,@MovTime,@Status,@DocType,@DocNumber,@Integrada,@DataIntegracao,@HoraIntegracao,@UserIntegracao,@Validade,@Warehouse,@Location,@ExternalDocNum,@EntityType,@EntityNumber,@InternalStampDoc,@DestinationDocType,@VatNumber, @UnitPrice, @WarehouseOut, @OriLineNumber, @QtyUM, @Qty2, @Qty2UM, @descarga, @Peso						
-					END
- 						
-					IF (@StampBo <>'')
-					BEGIN
-						IF (@DocTipo = 'DCO') -- VAI BUSCAR OS DADOS PARA O CABECALHO
-							SELECT @obs = obs, @tpdesc = tpdesc FROM BO WITH(NOLOCK) WHERE bostamp = @StampBo
- 
-						IF ((@DocTipo = 'DCO') AND ((@fecha = 'F'))) -- fechar o dossier
+						
+						IF @TipoProcesso in ('PICKTRANSF','TRANSF') AND RTRIM(LTRIM(@SSCC))<>''
 						BEGIN
-							UPDATE bo set fechada = 1, datafecho = @DateStr  WHERE bostamp = @StampBo
-							UPDATE bi set fechada = 1, datafecho = @DateStr  WHERE bostamp = @StampBo
+							UPDATE u_Kapps_PackingHeader SET CurrentWarehouse=@WarehouseOut, CurrentLocation=@LocationOut WHERE SSCC=@SSCC
 						END
+						
+						-- Atualizar estado das paletes 
+						IF @TipoProcesso in ('PICKING','PACKING') AND RTRIM(LTRIM(@SSCC)) <>'' AND RTRIM(LTRIM(@CustomerNumber))<>'' and ((@EntityType = 'C') OR (@EntityType = 'CL'))
+						BEGIN
+							SELECT @IsCustomerInternal = COALESCE(InternalCustomer,0) FROM v_Kapps_Customers WHERE Code=@CustomerNumber
+							IF @IsCustomerInternal=0
+							BEGIN
+								UPDATE u_Kapps_PackingHeader SET PackStatus=3 WHERE SSCC = @SSCC
+							END
+						END
+
+						FETCH NEXT FROM curKappsDossiers INTO @StampLin,@StampBo,@StampBi,@Ref,@Description,@Qty,@Lot,@Serial,@UserID,@MovDate,@MovTime,@Status,@DocType,@DocNumber,@Integrada,@DataIntegracao,@HoraIntegracao,@UserIntegracao,@Validade,@Warehouse,@Location,@ExternalDocNum,@EntityType,@EntityNumber,@InternalStampDoc,@DestinationDocType, @VatNumber, @UnitPrice, @WarehouseOut, @LocationOut, @OriLineNumber, @QtyUM, @Qty2, @Qty2UM, @descarga, @Peso, @SSCC
+					END
+
+
+					IF @NewBoStamp<>''
+					BEGIN
+						IF (@StampBo <>'')
+						BEGIN
+							IF (@DocTipo = 'DCO') -- vai buscar os dados para o cabecalho
+							BEGIN
+								SELECT @obs = obs, @tpdesc = tpdesc FROM BO WITH(NOLOCK) WHERE bostamp = @StampBo
+							END
+ 
+							IF ((@DocTipo = 'DCO') AND ((@fecha = 'F'))) -- fechar o dossier
+							BEGIN
+								UPDATE bo set fechada = 1, datafecho = @DateStr  WHERE bostamp = @StampBo
+								UPDATE bi set fechada = 1, datafecho = @DateStr  WHERE bostamp = @StampBo
+							END
+						END
+ 
+						UPDATE bo SET sdeb4 = dbo.u_Kapps_EurToEsc(@etotaldeb), esdeb4 = @etotaldeb, etotaldeb = @etotaldeb, totaldeb = dbo.u_Kapps_EurToEsc(@etotaldeb), ebo_2tvall = @etotaldeb, 
+						bo_2tvall = dbo.u_Kapps_EurToEsc(@etotaldeb), ebo_totp2 = @etotal, descc = dbo.u_Kapps_EurToEsc(@edescc), edescc = @edescc, memissao = 'EURO',
+						ebo12_bins = @ebo12_bins, ebo12_iva= @ebo12_iva, bo12_bins = dbo.u_Kapps_EurToEsc(@ebo12_bins), bo12_iva= dbo.u_Kapps_EurToEsc(@ebo12_iva),
+						ebo22_bins = @ebo22_bins, ebo22_iva= @ebo22_iva, bo22_bins = dbo.u_Kapps_EurToEsc(@ebo22_bins), bo22_iva= dbo.u_Kapps_EurToEsc(@ebo22_iva),
+						ebo32_bins = @ebo32_bins, ebo32_iva= @ebo32_iva, bo32_bins = dbo.u_Kapps_EurToEsc(@ebo32_bins), bo32_iva= dbo.u_Kapps_EurToEsc(@ebo32_iva),
+						ebo42_bins = @ebo42_bins, ebo42_iva= @ebo42_iva, bo42_bins = dbo.u_Kapps_EurToEsc(@ebo42_bins), bo42_iva= dbo.u_Kapps_EurToEsc(@ebo42_iva),
+						ebo52_bins = @ebo52_bins, ebo52_iva= @ebo52_iva, bo52_bins = dbo.u_Kapps_EurToEsc(@ebo52_bins), bo52_iva= dbo.u_Kapps_EurToEsc(@ebo52_iva),
+						ebo62_bins = @ebo62_bins, ebo62_iva= @ebo62_iva, bo62_bins = dbo.u_Kapps_EurToEsc(@ebo62_bins), bo62_iva= dbo.u_Kapps_EurToEsc(@ebo62_iva)
+						WHERE bostamp = @NewBoStamp 
+
+						EXECUTE SP_u_Kapps_DocDossInternIVAs  @NewBoStamp, @iva1, @ebo12_bins, @ebo12_iva, @iva2, @ebo22_bins, @ebo22_iva, @iva3, @ebo32_bins, @ebo32_iva, @iva4, @ebo42_bins, @ebo42_iva, @iva5, @ebo52_bins, @ebo52_iva, @iva6, @ebo62_bins, @ebo62_iva, @ousrinis, @ousrdata, @ousrhora, @usrinis, @usrdata, @usrhora
+                    
+						SET @estado = 'OK'
+						SET @descerro = ''  
 					END
  
-					UPDATE bo SET sdeb4 = dbo.u_Kapps_EurToEsc(@etotaldeb), esdeb4 = @etotaldeb, etotaldeb = @etotaldeb, totaldeb = dbo.u_Kapps_EurToEsc(@etotaldeb), ebo_2tvall = @etotaldeb, 
-					bo_2tvall = dbo.u_Kapps_EurToEsc(@etotaldeb), ebo_totp2 = @etotal, descc = dbo.u_Kapps_EurToEsc(@edescc), edescc = @edescc, memissao = 'EURO',
-					ebo12_bins = @ebo12_bins, ebo12_iva= @ebo12_iva, bo12_bins = dbo.u_Kapps_EurToEsc(@ebo12_bins), bo12_iva= dbo.u_Kapps_EurToEsc(@ebo12_iva),
-					ebo22_bins = @ebo22_bins, ebo22_iva= @ebo22_iva, bo22_bins = dbo.u_Kapps_EurToEsc(@ebo22_bins), bo22_iva= dbo.u_Kapps_EurToEsc(@ebo22_iva),
-					ebo32_bins = @ebo32_bins, ebo32_iva= @ebo32_iva, bo32_bins = dbo.u_Kapps_EurToEsc(@ebo32_bins), bo32_iva= dbo.u_Kapps_EurToEsc(@ebo32_iva),
-					ebo42_bins = @ebo42_bins, ebo42_iva= @ebo42_iva, bo42_bins = dbo.u_Kapps_EurToEsc(@ebo42_bins), bo42_iva= dbo.u_Kapps_EurToEsc(@ebo42_iva),
-					ebo52_bins = @ebo52_bins, ebo52_iva= @ebo52_iva, bo52_bins = dbo.u_Kapps_EurToEsc(@ebo52_bins), bo52_iva= dbo.u_Kapps_EurToEsc(@ebo52_iva),
-					ebo62_bins = @ebo62_bins, ebo62_iva= @ebo62_iva, bo62_bins = dbo.u_Kapps_EurToEsc(@ebo62_bins), bo62_iva= dbo.u_Kapps_EurToEsc(@ebo62_iva)
-					WHERE bostamp = @NewBoStamp 
-
-					EXECUTE SP_u_Kapps_DocDossInternIVAs  @NewBoStamp, @iva1, @ebo12_bins, @ebo12_iva, @iva2, @ebo22_bins, @ebo22_iva, @iva3, @ebo32_bins, @ebo32_iva, @iva4, @ebo42_bins, @ebo42_iva, @iva5, @ebo52_bins, @ebo52_iva, @iva6, @ebo62_bins, @ebo62_iva, @ousrinis, @ousrdata, @ousrhora, @usrinis, @usrdata, @usrhora
-                    
-					SET @estado = 'OK'
-					SET @descerro = ''  
- 
-					COMMIT TRANSACTION
- 
-					END TRY
-					BEGIN CATCH
-						SELECT @ErrorMessage = ERROR_MESSAGE(), @ErrorSeverity = ERROR_SEVERITY(), @ErrorState = ERROR_STATE()
-						ROLLBACK TRANSACTION
-						SET @estado = 'NOK'
-						SET @descerro = @ErrorMessage
-						SET @NewBoStamp = ''
-						SET @obrano = ''
-						
-						RAISERROR (@ErrorMessage, @ErrorSeverity, @ErrorState)
-
-						INSERT INTO u_Kapps_Log(LogStamp,LogType,LogMessage,LogDetail,LogTerminal) 
-						VALUES (CONVERT(VARCHAR, GETDATE(), 112) + REPLACE(CONVERT(VARCHAR, GETDATE(), 114), ':', ''),10,''''+RTRIM(@DocTipo)+''', '''+RTRIM(@InStampDoc) +''', '''+ RTRIM(@ndos)+ ''', '''+RTRIM(@fecha)+''', '''+	RTRIM(@terminal)+''', '''+RTRIM(@integra)+''', '''+RTRIM(@ParameterGroup)+''', '''+RTRIM(@InUserIntegracao)+''', '''+RTRIM(@ExpeditionWarehouse)+''', '''+RTRIM(@ExpeditionLocation)+'''', RTRIM(@ErrorMessage), @Terminal)
-						
-						GOTO FIM
-                    
-					END CATCH
-			FIM:
 					CLOSE curKappsDossiers
 					DEALLOCATE curKappsDossiers
 		END
 	END
---
--- Deve retornar apenas um result set com 
---
--- @estado 			OK ou NOK 
--- @descerro 		Descrição do erro
--- @NewBoStamp		Stamp do documento gerado
--- @obrano			Numero do documento gerado
---
-SELECT @estado, @descerro, @NewBoStamp, @obrano
---
+	
+	COMMIT TRANSACTION
+ 
+	END TRY
+	BEGIN CATCH
+		SELECT @ErrorMessage = ERROR_MESSAGE(), @ErrorSeverity = ERROR_SEVERITY(), @ErrorState = ERROR_STATE()
+		ROLLBACK TRANSACTION
+		SET @estado = 'NOK'
+		SET @descerro = @ErrorMessage
+		SET @NewBoStamp = ''
+		SET @obrano = ''
+		
+		RAISERROR (@ErrorMessage, @ErrorSeverity, @ErrorState)
+
+		INSERT INTO u_Kapps_Log(LogStamp,LogType,LogMessage,LogDetail,LogTerminal) 
+		VALUES (CONVERT(VARCHAR, GETDATE(), 112) + REPLACE(CONVERT(VARCHAR, GETDATE(), 114), ':', ''),10,''''+RTRIM(@DocTipo)+''', '''+RTRIM(@InStampDoc) +''', '''+ RTRIM(@ndos)+ ''', '''+RTRIM(@fecha)+''', '''+	RTRIM(@terminal)+''', '''+RTRIM(@integra)+''', '''+RTRIM(@ParameterGroup)+''', '''+RTRIM(@InUserIntegracao)+''', '''+RTRIM(@ExpeditionWarehouse)+''', '''+RTRIM(@ExpeditionLocation)+'''', RTRIM(@ErrorMessage), @Terminal)
+
+	END CATCH
+
+	--
+	-- Deve retornar apenas um result set com 
+	--
+	-- @estado 			OK ou NOK 
+	-- @descerro 		Descrição do erro
+	-- @NewBoStamp		Stamp do documento gerado
+	-- @obrano			Numero do documento gerado
+	--
+	SELECT @estado, @descerro, @NewBoStamp, @obrano
 END
 GO
 
@@ -1483,6 +1476,7 @@ BEGIN
 	DECLARE @OrigStampLin VARCHAR(50)
 	DECLARE @StampLin VARCHAR(50)
 	DECLARE @unidade VARCHAR(50)
+	DECLARE @usalote INT
 
 	WAITFOR DELAY '00:00:00.200'
 	SET @ErrorMessage = ''
@@ -1504,14 +1498,14 @@ BEGIN
 		SELECT @Date=Data FROM stic WHERE sticstamp=@Sticstamp
 		
 		DECLARE curLinhasContagem CURSOR LOCAL STATIC READ_ONLY FOR
-		SELECT lin.Ref, lin.Description, SUM(lin.Qty), lin.Warehouse, lin.location, lin.Lot, lin.OrigStampLin, art.BaseUnit
+		SELECT lin.Ref, lin.Description, SUM(lin.Qty), lin.Warehouse, lin.location, lin.Lot, lin.OrigStampLin, art.BaseUnit, art.UseLots
 		FROM u_Kapps_StockLines lin WITH(NOLOCK)
 		LEFT JOIN v_Kapps_Articles art ON art.Code=lin.Ref
 		WHERE lin.OrigStampHeader=@StampHeader and lin.InternalStampDoc = @InternalStampDoc and lin.Syncr<>'S'
-		GROUP BY lin.Ref, lin.Description, lin.Warehouse, lin.location, lin.Lot, lin.OrigStampLin, art.BaseUnit
+		GROUP BY lin.Ref, lin.Description, lin.Warehouse, lin.location, lin.Lot, lin.OrigStampLin, art.BaseUnit, art.UseLots
 
 		OPEN curLinhasContagem
-		FETCH NEXT FROM curLinhasContagem INTO @Ref,@Description,@Qty,@Warehouse,@Localizacao,@Lot,@OrigStampLin,@unidade
+		FETCH NEXT FROM curLinhasContagem INTO @Ref,@Description,@Qty,@Warehouse,@Localizacao,@Lot,@OrigStampLin,@unidade,@usalote
 		WHILE @@FETCH_STATUS = 0
 		BEGIN
 			WAITFOR DELAY '00:00:00.200' 
@@ -1522,15 +1516,15 @@ BEGIN
 
 			IF @TipoContagem='C'
 			BEGIN			
-				INSERT INTO stil (stilstamp, ref, design, data, stock, sticstamp, armazem, lote, ousrinis, usrinis, ousrdata, usrdata, ousrhora, usrhora, unidade)
-				VALUES(@stilstamp, @Ref, @Description, @Date, @Qty, @Sticstamp, @Warehouse, @Lot, @ousrinis, @usrinis, @ousrdata, @usrdata, @ousrhora, @usrhora, @unidade) 
+				INSERT INTO stil (stilstamp, ref, design, data, stock, sticstamp, armazem, lote, ousrinis, usrinis, ousrdata, usrdata, ousrhora, usrhora, unidade, usalote)
+				VALUES(@stilstamp, @Ref, @Description, @Date, @Qty, @Sticstamp, @Warehouse, @Lot, @ousrinis, @usrinis, @ousrdata, @usrdata, @ousrhora, @usrhora, @unidade, @usalote) 
 			END	
 			ELSE
 			BEGIN
 				UPDATE stil SET stock = stock + @Qty WHERE STICSTAMP = @StampHeader AND STILSTAMP = @OrigStampLin
 			END
 		  
-			FETCH NEXT FROM curLinhasContagem INTO @Ref,@Description,@Qty,@Warehouse,@Localizacao,@Lot,@OrigStampLin,@unidade
+			FETCH NEXT FROM curLinhasContagem INTO @Ref,@Description,@Qty,@Warehouse,@Localizacao,@Lot,@OrigStampLin,@unidade,@usalote
 		END
 
 		UPDATE u_Kapps_StockLines SET Syncr = 'S', Status='C', SyncrDate=GETDATE(), SyncrUser=@UserIntegracao WHERE OrigStampHeader = @StampHeader and InternalStampDoc = @InternalStampDoc
@@ -1553,6 +1547,8 @@ BEGIN
 		DEALLOCATE curLinhasContagem
 END
 GO
+
+
 
 IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SP_u_Kapps_Contagem') AND type in (N'P', N'PC'))
 DROP PROCEDURE SP_u_Kapps_Contagem
@@ -1761,36 +1757,41 @@ AS
 BEGIN
 	SET NOCOUNT ON;
 
-	DECLARE @spsql varchar(MAX)
-	DECLARE @spsqlnovo varchar(MAX)
+	DECLARE @spsql VARCHAR(MAX)
+	DECLARE @spsqlnovo VARCHAR(MAX)
 
 	SET @spsql = ''
-
-	SET @spsql = (select (substring(sm.definition, charindex('SET NOCOUNT ON;', RTRIM(sm.definition)) + 16, LEN(sm.definition) - (charindex('SET NOCOUNT ON;', sm.definition) + 15)))
-		from sys.sql_modules as sm JOIN sys.objects AS o ON sm.object_id = o.object_id where o.type = 'P'
-		and OBJECT_NAME(sm.object_id) = @name)
+	SET @spsql = (
+			SELECT (substring(sm.DEFINITION, charindex('SET NOCOUNT ON;', RTRIM(sm.DEFINITION)) + 16, LEN(sm.DEFINITION) - (charindex('SET NOCOUNT ON;', sm.DEFINITION) + 15)))
+			FROM sys.sql_modules AS sm
+			INNER JOIN sys.objects AS o ON sm.object_id = o.object_id
+			WHERE o.type = 'P' AND OBJECT_NAME(sm.object_id) = @name
+			)
 
 	IF (@spsql <> '')
 	BEGIN
-		IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SP_u_Kapps_ProductPriceUSR') AND type in (N'P', N'PC'))
-		DROP PROCEDURE SP_u_Kapps_ProductPriceUSR
-						
+		IF EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SP_u_Kapps_ProductPriceUSR') AND type IN (N'P', N'PC'))
+		BEGIN
+			DROP PROCEDURE SP_u_Kapps_ProductPriceUSR
+		END
+
 		SET @spsqlnovo = 'CREATE PROCEDURE SP_u_Kapps_ProductPriceUSR
-							@REFERENCIA VARCHAR(40),		--	REFERENCIA DO ARTIGO
-							@Lot VARCHAR(50),			--	LOTE DO ARTIGO
-							@ARMAZEM VARCHAR(50),	--	ARMAZÉM
-							@NRSERIE VARCHAR(50),		--	NÚMERO DE SÉRIE
-							@QTD DECIMAL(20,7),		--	QUANTIDADE
-							@CLIENTE VARCHAR(50),		--	CLIENTE
-							@FORNECEDOR VARCHAR(50),	--	FORNECEDOR
-							@EVENTO INT,				--	1(PICKING) OU 2(RECEPCAO) OU 3(PACKING) OU 4(OUTROS) OU 5(CONTAGEM) OU 6(CONSULTA STOCKS) OU 7(PALETES) OU 8(PICKTRANSF) 
-							@DOCORIGEM VARCHAR(50),	--	EM OUTROS É O DOCUMENTO QUE O UTILZIADOR CRIOU
-							@CABKEY VARCHAR(50),		--	CHAVE DO CABECALHO DO DOCUMENTO DE ORIGEM
-							@LINEKEY VARCHAR(50)		--	CHAVE DA LINHA DO DOCUMENTO DE ORIGEM
-							AS
-							BEGIN
-								SET NOCOUNT ON; ' + @spsql
-							
+	@REFERENCIA VARCHAR(40),	--	REFERENCIA DO ARTIGO
+	@Lot VARCHAR(50),			--	LOTE DO ARTIGO
+	@ARMAZEM VARCHAR(50),		--	ARMAZÉM
+	@NRSERIE VARCHAR(50),		--	NÚMERO DE SÉRIE
+	@QTD DECIMAL(20,7),			--	QUANTIDADE
+	@CLIENTE VARCHAR(50),		--	CLIENTE
+	@FORNECEDOR VARCHAR(50),	--	FORNECEDOR
+	@EVENTO INT,				--	1(PICKING) OU 2(RECEPCAO) OU 3(PACKING) OU 4(OUTROS) OU 5(CONTAGEM) OU 6(CONSULTA STOCKS) OU 7(PALETES) OU 8(PICKTRANSF) 
+	@DOCORIGEM VARCHAR(50),		--	EM OUTROS É O DOCUMENTO QUE O UTILZIADOR CRIOU
+	@CABKEY VARCHAR(50),		--	CHAVE DO CABECALHO DO DOCUMENTO DE ORIGEM
+	@LINEKEY VARCHAR(50),		--	CHAVE DA LINHA DO DOCUMENTO DE ORIGEM
+	@BUSYUNIT VARCHAR(50)		--	UNIDADE MOVIMENTADA
+AS
+BEGIN
+	SET NOCOUNT ON; ' + @spsql
+
 		EXEC (@spsqlnovo)
 	END
 END
@@ -1824,8 +1825,8 @@ BEGIN
 			DROP PROCEDURE SP_u_Kapps_ProductsUSR
 						
 		SET @spsqlnovo = 'CREATE PROCEDURE SP_u_Kapps_ProductsUSR
-	@REFERENCIA VARCHAR(40),	--	REFERENCIA DO ARTIGO
-	@CHAVELINHA VARCHAR(50),	--	CHAVE DA LINHA 
+	@REFERENCIA VARCHAR(40),	--	Referência do artigo
+	@CHAVELINHA VARCHAR(50),	--	Chave da linha no formato StampBo*StampBi
 	@STAMPLIN VARCHAR(50),		--	Stamp da linha u_Kapps_DossierLin
 	@PACKID	VARCHAR(50),		--  Numero da caixa
 	@LOTE	VARCHAR(50),		--  Lote
@@ -1899,12 +1900,12 @@ GO
 IF  EXISTS (SELECT * FROM sys.triggers WHERE object_id = OBJECT_ID(N'UpdateLineNumber'))
 	DROP TRIGGER UpdateLineNumber
 GO
-CREATE TRIGGER UpdateLineNumber
-ON u_Kapps_PackingDetails
- AFTER INSERT
+CREATE TRIGGER UpdateLineNumber ON u_Kapps_PackingDetails
+AFTER INSERT
 AS
 BEGIN
-	UPDATE det set LineID = (SELECT MAX(LineID) + 1 FROM u_Kapps_PackingDetails) FROM u_Kapps_PackingDetails det JOIN inserted ins on det.StampLin = ins.StampLin and det.PackID = ins.PackID
+	SET NOCOUNT ON;
+	UPDATE det set LineID = (SELECT MAX(abs(LineID)) + 1 FROM u_Kapps_PackingDetails) FROM u_Kapps_PackingDetails det JOIN inserted ins on det.StampLin = ins.StampLin and det.PackID = ins.PackID;
 END	
 GO
 ALTER TABLE u_Kapps_PackingDetails ENABLE TRIGGER UpdateLineNumber
@@ -1946,26 +1947,25 @@ BEGIN
 
 	IF (@spsql <> '')
 	BEGIN
-						
-					
+
 		IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SP_u_Kapps_ProductStockUSR') AND type in (N'P', N'PC'))
 			DROP PROCEDURE SP_u_Kapps_ProductStockUSR
 						
-		SET @spsqlnovo = 'CREATE PROCEDURE SP_u_Kapps_ProductStockUSR'+CHAR(13)+CHAR(10)+
-			'	@REFERENCIA VARCHAR(40),		--	REFERENCIA DO ARTIGO'+CHAR(13)+CHAR(10)+
-			'	@Lot VARCHAR(50),			--	LOTE DO ARTIGO'+CHAR(13)+CHAR(10)+
-			'	@ARMAZEM VARCHAR(50),		--	ARMAZÉM'+CHAR(13)+CHAR(10)+
-			'	@NRSERIE VARCHAR(50),		--	NÚMERO DE SÉRIE'+CHAR(13)+CHAR(10)+
-			'	@EVENTO INT,				--	1(PICKING) OU 2(RECEPCAO) OU 3(PACKING) OU 4(OUTROS) OU 5(CONTAGEM) OU 6(CONSULTA DE STOCKS)	'+CHAR(13)+CHAR(10)+
-			'	@LOCALIZACAO VARCHAR(50),	--	LOCALIZACAO'+CHAR(13)+CHAR(10)+
-			'	@LISTA INT = 0				--  0(RETORNA APENAS UMA LINHA @STOCKAUSAR, @STOCK, @STOCKDISPONIVEL)'+CHAR(13)+CHAR(10)+
-			'								--  1(RETORNA LINHAS com CodigoArmazem, NomeArmazem, Stock, StockDisponivel AGRUPADA por CodigoArmazem e ORDENADA POR NomeArmazem)'+CHAR(13)+CHAR(10)+
-			'								--  2(RETORNA LINHAS com Localizacao, Lote, Stock, StockDisponivel AGRUPADA por Localizacao, Lote ORDENADA POR Localizacao)'+CHAR(13)+CHAR(10)+
-			'								--  3(RETORNA LINHAS com Localizacao, Lote, Stock, StockDisponivel AGRUPADA por Localizacao, Lote ORDENADA POR Lote)'+CHAR(13)+CHAR(10)+
-			'								--  4(RETORNA LINHAS com Lote, Stock, Validade, DataProducao, Armazem, Localizacao)'+CHAR(13)+CHAR(10)+
-			'AS'+CHAR(13)+CHAR(10)+
-			'BEGIN'+CHAR(13)+CHAR(10)+
-			'	SET NOCOUNT ON; '+ @spsql
+		SET @spsqlnovo = 'CREATE PROCEDURE SP_u_Kapps_ProductStockUSR
+	@REFERENCIA VARCHAR(40),		--	REFERENCIA DO ARTIGO
+	@Lot VARCHAR(50),			--	LOTE DO ARTIGO
+	@ARMAZEM VARCHAR(50),		--	ARMAZÉM
+	@NRSERIE VARCHAR(50),		--	NÚMERO DE SÉRIE
+	@EVENTO INT,				--	1(PICKING) OU 2(RECEPCAO) OU 3(PACKING) OU 4(OUTROS) OU 5(CONTAGEM) OU 6(CONSULTA DE STOCKS)
+	@LOCALIZACAO VARCHAR(50),	--	LOCALIZACAO
+	@LISTA INT = 0				--  0(RETORNA APENAS UMA LINHA @STOCKAUSAR, @STOCK, @STOCKDISPONIVEL)
+								--  1(RETORNA LINHAS com CodigoArmazem, NomeArmazem, Stock, StockDisponivel AGRUPADA por CodigoArmazem e ORDENADA POR NomeArmazem)
+								--  2(RETORNA LINHAS com Localizacao, Lote, Stock, StockDisponivel AGRUPADA por Localizacao, Lote ORDENADA POR Localizacao)
+								--  3(RETORNA LINHAS com Localizacao, Lote, Stock, StockDisponivel AGRUPADA por Localizacao, Lote ORDENADA POR Lote)
+								--  4(RETORNA LINHAS com Lote, Stock, Validade, DataProducao, Armazem, Localizacao)
+AS
+BEGIN
+	SET NOCOUNT ON; '+ @spsql
 							
 		EXEC (@spsqlnovo)
 
@@ -1996,18 +1996,17 @@ BEGIN
 
 	IF (@spsql <> '')
 	BEGIN
-						
-					
+
 		IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SP_u_Kapps_PriceCheckingUSR') AND type in (N'P', N'PC'))
 			DROP PROCEDURE SP_u_Kapps_PriceCheckingUSR
 						
 		SET @spsqlnovo = 'CREATE PROCEDURE SP_u_Kapps_PriceCheckingUSR
-								@REFERENCIA VARCHAR(40),		--	REFERENCIA DO ARTIGO
-								@ARMAZEM VARCHAR(50),		--	ARMAZÉM
-								@UNIDADE VARCHAR(50)		--	UNIDADE
-							AS
-							BEGIN
-								SET NOCOUNT ON; ' + @spsql
+	@REFERENCIA VARCHAR(40),	--	REFERENCIA DO ARTIGO
+	@ARMAZEM VARCHAR(50),		--	ARMAZÉM
+	@UNIDADE VARCHAR(50)		--	UNIDADE
+AS
+BEGIN
+	SET NOCOUNT ON; ' + @spsql
 							
 		EXEC (@spsqlnovo)
 
@@ -2029,21 +2028,17 @@ GO
 CREATE PROCEDURE SP_u_Kapps_EliminaTabelaTemporaria
 	@NomeTabela SYSNAME
 AS
+BEGIN
+	SET NOCOUNT ON;
+	IF OBJECT_ID('tempdb.dbo.'+@NomeTabela, 'U') IS NOT NULL
 	BEGIN
-		SET NOCOUNT ON;
-		IF OBJECT_ID('tempdb.dbo.'+@NomeTabela, 'U') IS NOT NULL
-		BEGIN
-			DECLARE @SQL NVARCHAR(100)
-			SELECT @SQL = 'DROP TABLE ' + QUOTENAME(@NomeTabela) + '';
-			EXEC sp_executesql @SQL;
-		END
+		DECLARE @SQL NVARCHAR(100)
+		SELECT @SQL = 'DROP TABLE ' + QUOTENAME(@NomeTabela) + '';
+		EXEC sp_executesql @SQL;
 	END
+END
 GO
 
-
-IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SPMSS_Reconstroi_APPSP_USR') AND type in (N'P', N'PC'))
-DROP PROCEDURE SPMSS_Reconstroi_APPSP_USR
-GO
 
 IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SPMSS_Reconstroi_APPSP_USR') AND type in (N'P', N'PC'))
 DROP PROCEDURE SPMSS_Reconstroi_APPSP_USR
@@ -2065,25 +2060,22 @@ BEGIN
 
 	IF (@spsql <> '')
 	BEGIN
-						
-					
 		IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SP_u_Kapps_ContagemUSR') AND type in (N'P', N'PC'))
 			DROP PROCEDURE SP_u_Kapps_ContagemUSR
 						
 		SET @spsqlnovo = 'CREATE PROCEDURE SP_u_Kapps_ContagemUSR
-			  @DocTipo CHAR(5),
-			  @StampHeader CHAR(25),
-			  @TipoDoc VARCHAR(50),
-			  @fecha CHAR(5),
-			  @terminal CHAR(5),
-			  @UserIntegracao VARCHAR(50),
-			  @InternalStampDoc VARCHAR(50)
-			AS
-			BEGIN
-				SET NOCOUNT ON; ' + @spsql
+	@DocTipo CHAR(5),
+	@StampHeader CHAR(25),
+	@TipoDoc VARCHAR(50),
+	@fecha CHAR(5),
+	@terminal CHAR(5),
+	@UserIntegracao VARCHAR(50),
+	@InternalStampDoc VARCHAR(50)
+AS
+BEGIN
+	SET NOCOUNT ON; ' + @spsql
 							
 		EXEC (@spsqlnovo)
-
 	END
 END
 GO
@@ -2099,65 +2091,9 @@ GO
 
 
 IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SP_u_Kapps_RefreshUsers') AND type in (N'P', N'PC'))
-DROP PROCEDURE SP_u_Kapps_RefreshUsers
+DROP PROCEDURE SP_u_Kapps_RefreshUsers 		-- Foi Eliminada
 GO
-CREATE PROCEDURE SP_u_Kapps_RefreshUsers 
-AS
-BEGIN
-      SET NOCOUNT ON;
 
-      DECLARE @strlogin varchar(50)
-      DECLARE @strNome varchar(50)
-	  DECLARE @strActif bit
- 	  
-	  DECLARE @ERP VARCHAR(25)
-	  DECLARE @BDSistema VARCHAR(25)
-
-      SET @strlogin = ''
-      SET @strNome = ''
-	  SET @strActif = 0
-	  SET @ERP = ''
-
-	  SELECT @ERP=UPPER(ParameterValue) FROM u_Kapps_Parameters WITH(NOLOCK) WHERE ParameterGroup='MAIN' and ParameterID = 'ERP' 
-
-	  IF  (@ERP = 'ETICADATA_16/17/18/19')
-	  BEGIN
-		SELECT @BDSistema = ParameterValue FROM u_Kapps_Parameters WITH(NOLOCK) WHERE ParameterGroup='MAIN' and Upper(ParameterID) = Upper('BD_Sistema')
-
-		exec ('INSERT INTO u_Kapps_Users(Username, Name, Actif) select strlogin, CASE WHEN ISNULL(strNome,'''') = '''' THEN strlogin ELSE strNome END, CAST(0 as bit) from ' + @BDSistema + '..Tbl_Utilizadores WITH(NOLOCK) WHERE strlogin not in (SELECT Username FROM u_kapps_users WITH(NOLOCK))')
-		exec ('DELETE FROM u_Kapps_Users WHERE Username not in (select strlogin from ' + @BDSistema + '..Tbl_Utilizadores WITH(NOLOCK))')
-		exec ('DELETE FROM u_Kapps_Parameters WHERE ParameterType=''USR'' and ParameterGroup<>''DEFAULT'' and ParameterGroup not in (SELECT Username FROM u_Kapps_Users WITH(NOLOCK) WHERE Actif=1)')
-	  END
-	  ELSE IF (@ERP = 'PRIMAVERA')
-	  BEGIN
-		SELECT @BDSistema = ParameterValue FROM u_Kapps_Parameters WITH(NOLOCK) WHERE ParameterGroup='MAIN' and Upper(ParameterID) = Upper('BD_Empresas')
-		exec ('INSERT INTO u_Kapps_Users(Username, Name, Actif) SELECT Codigo, CASE WHEN ISNULL(Nome,'''') = '''' THEN Codigo ELSE Nome END, CAST(0 as bit) FROM ' + @BDSistema + '..Utilizadores WITH(NOLOCK) WHERE Codigo not in (SELECT Username FROM u_kapps_users WITH(NOLOCK))')
-		exec ('DELETE FROM u_Kapps_Users WHERE Username not in (select Codigo from ' + @BDSistema + '..Utilizadores WITH(NOLOCK))')
-		exec ('DELETE FROM u_Kapps_Parameters WHERE ParameterType=''USR'' and ParameterGroup<>''DEFAULT'' and ParameterGroup not in (SELECT Username FROM u_Kapps_Users WITH(NOLOCK) WHERE Actif=1)')
-	  END
-	  ELSE IF (@ERP = 'PHC')
-	  BEGIN
-		exec ('INSERT INTO u_Kapps_Users(Username, Name, Actif) SELECT usercode,CASE WHEN ISNULL(username,'''') = '''' THEN usercode ELSE username END, CAST(0 as bit) FROM us WITH(NOLOCK) WHERE usercode not in (SELECT Username FROM u_kapps_users WITH(NOLOCK))')	
-		exec ('DELETE FROM u_Kapps_Users WHERE Username not in (select usercode from us WITH(NOLOCK))')
-		exec ('DELETE FROM u_Kapps_Parameters WHERE ParameterType=''USR'' and ParameterGroup<>''DEFAULT'' and ParameterGroup not in (SELECT Username FROM u_Kapps_Users WITH(NOLOCK) WHERE Actif=1)')
-	  END
-	  ELSE IF (@ERP = 'SAGE_50C')
-	  BEGIN
-		exec ('INSERT INTO u_Kapps_Users(Username, Name, Actif) SELECT AppUserName,AppUserName, CAST(0 as bit) FROM AppUsers WITH(NOLOCK) WHERE AppUserName not in (SELECT Username FROM u_kapps_users WITH(NOLOCK))')	
-		exec ('DELETE FROM u_Kapps_Users WHERE Username not in (select AppUserName from AppUsers WITH(NOLOCK))')
-		exec ('DELETE FROM u_Kapps_Parameters WHERE ParameterType=''USR'' and ParameterGroup<>''DEFAULT'' and ParameterGroup not in (SELECT Username FROM u_Kapps_Users WITH(NOLOCK) WHERE Actif=1)')
-  
-	  END
-	  ELSE IF (@ERP = 'SAGE_100C')
-	  BEGIN
-		exec ('INSERT INTO u_Kapps_Users(Username, Name, Actif) SELECT ''admin'',''admin'', CAST(0 as bit) WHERE ''admin'' not in (SELECT Username FROM u_kapps_users WITH(NOLOCK))')	
-	  END
-	  ELSE IF (@ERP = 'PERSONALIZADO')
-	  BEGIN
-		exec ('INSERT INTO u_Kapps_Users(Username, Name, Actif) SELECT ''admin'',''admin'', CAST(0 as bit) WHERE ''admin'' not in (SELECT Username FROM u_kapps_users WITH(NOLOCK))')	
-	  END
-END
-GO
 
 
 IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SP_u_Kapps_CriaTabelaTemporaria') AND type in (N'P', N'PC'))
@@ -2224,34 +2160,34 @@ CREATE PROCEDURE SP_u_Kapps_DocumentUSR
 	  @KeyDocGerado NVARCHAR(50)    -- Key do documento gerado   
 AS
 BEGIN
-	  SET NOCOUNT ON;
+	SET NOCOUNT ON;
 
-	  DECLARE @Par1 VARCHAR(255)
-	  DECLARE @Par2 VARCHAR(255)
-	  DECLARE @Par3 VARCHAR(255)
-	  DECLARE @Par4 VARCHAR(255)
-	  DECLARE @Par5 VARCHAR(255)
-	  DECLARE @Par6 VARCHAR(255)
-	  DECLARE @Par7 VARCHAR(255)
-	  DECLARE @Par8 VARCHAR(255)
-	  DECLARE @Par9 VARCHAR(255)
-	  DECLARE @Par10 VARCHAR(255)
+	DECLARE @Par1 VARCHAR(255)
+	DECLARE @Par2 VARCHAR(255)
+	DECLARE @Par3 VARCHAR(255)
+	DECLARE @Par4 VARCHAR(255)
+	DECLARE @Par5 VARCHAR(255)
+	DECLARE @Par6 VARCHAR(255)
+	DECLARE @Par7 VARCHAR(255)
+	DECLARE @Par8 VARCHAR(255)
+	DECLARE @Par9 VARCHAR(255)
+	DECLARE @Par10 VARCHAR(255)
 
-	  SET @Par1 = ''
-	  SET @Par2 = ''
-	  SET @Par3 = ''
-	  SET @Par4 = ''
-	  SET @Par5 = ''
-	  SET @Par6 = ''
-	  SET @Par7 = ''
-	  SET @Par8 = ''
-	  SET @Par9 = ''
-	  SET @Par10 = ''
+	SET @Par1 = ''
+	SET @Par2 = ''
+	SET @Par3 = ''
+	SET @Par4 = ''
+	SET @Par5 = ''
+	SET @Par6 = ''
+	SET @Par7 = ''
+	SET @Par8 = ''
+	SET @Par9 = ''
+	SET @Par10 = ''
 
-	  -- Colocar o código a partir deste ponto
-	  
+	-- Colocar o código a partir deste ponto
+	
 
-	  SELECT @Par1, @Par2, @Par3, @Par4, @Par5, @Par6, @Par7, @Par8, @Par9, @Par10
+	SELECT @Par1, @Par2, @Par3, @Par4, @Par5, @Par6, @Par7, @Par8, @Par9, @Par10
 END
 GO
 SET NOEXEC OFF
@@ -2266,16 +2202,16 @@ GO
 CREATE PROCEDURE SP_u_Kapps_SSCC_NextNumberUSR
 AS
 BEGIN
-	  SET NOCOUNT ON;
+	SET NOCOUNT ON;
 
-	  DECLARE @NextNumber INT
+	DECLARE @NextNumber INT
 
-	  SET @NextNumber = -1
+	SET @NextNumber = -1
 
-	  -- Colocar o código a partir deste ponto
-	  
+	-- Colocar o código a partir deste ponto
 
-	  SELECT @NextNumber
+
+	SELECT @NextNumber
 END
 GO
 SET NOEXEC OFF
@@ -2349,13 +2285,22 @@ BEGIN
 	DECLARE @Stock decimal(18,3)
 	DECLARE @tempTable Table (TempStock decimal(18,3))
 	DECLARE @CurrentSSCC nvarchar(18)
-
+	DECLARE @ErrorID int
+	DECLARE @TPD nvarchar(50)
+	DECLARE @SEC nvarchar(50)
+	DECLARE @NDC nvarchar(50)
 
 	SET @resultDescription = ''
 	SET @result = 0
 	SET @DocID = ''
 	SET @sql = ''
 	SET @inTransaction = 0
+	SET @ErrorID = 0
+	SET @ActiveLoadNr = 0
+	SET @TPD=''
+	SET @SEC=''
+	SET @NDC=''
+	SET @ErrorID=0
 
 	IF LEN(@SSCC1)=20
 	BEGIN
@@ -2368,67 +2313,97 @@ BEGIN
 
 	BEGIN TRY
 
-		SELECT @LocationActif=l.Actif, @Armazem=l.WarehouseID, @LoadStatus=h.LoadStatus, @ActiveLoadNr=l.ActiveLoadNr, @DocID=d.DocID, @DocStatus=d.DocStatus, @DocSequence=d.LoadingSequence, @AlreadyReadedSSCC1=p1.SSCC, @AlreadyReadedSSCC2=p2.SSCC
+		SELECT @LocationActif=l.Actif, @Armazem=l.WarehouseID, @LoadStatus=h.LoadStatus, @ActiveLoadNr=l.ActiveLoadNr, @DocID=d.DocID, @DocStatus=d.DocStatus, @DocSequence=d.LoadingSequence, @TPD=d.DocTPD, @SEC=d.DocSEC, @NDC=d.DocNDC
+		,@AlreadyReadedSSCC1=(SELECT count(*) FROM u_Kapps_LoadingPallets lp LEFT JOIN u_Kapps_LoadingHeader h1 on h1.LoadNr=lp.LoadNr WHERE (lp.LoadNr=l.ActiveLoadNr OR (h1.LoadStatus<>1 and lp.LoadNr<>l.ActiveLoadNr)) and SSCC=@SSCC1)
+		,@AlreadyReadedSSCC2=(SELECT count(*) FROM u_Kapps_LoadingPallets lp LEFT JOIN u_Kapps_LoadingHeader h1 on h1.LoadNr=lp.LoadNr WHERE (lp.LoadNr=l.ActiveLoadNr OR (h1.LoadStatus<>1 and lp.LoadNr<>l.ActiveLoadNr)) and SSCC=@SSCC2)
 		FROM u_Kapps_LoadingLocations l
 		LEFT JOIN u_Kapps_LoadingDeliveryPoints d on d.LoadNr=l.ActiveLoadNr and d.Actif=1
 		LEFT JOIN u_Kapps_LoadingHeader h on h.LoadNr=l.ActiveLoadNr
-		LEFT JOIN u_Kapps_LoadingPallets p1 on p1.LoadNr=l.ActiveLoadNr and (p1.SSCC=@SSCC1)
-		LEFT JOIN u_Kapps_LoadingPallets p2 on p2.LoadNr=l.ActiveLoadNr and (p2.SSCC=@SSCC2)
+
 		WHERE l.LocationID=@LocationID;
 		SET @Recordcount=@@ROWCOUNT
 
 		IF @Recordcount=0
 		BEGIN
-			SET @resultDescription='Não existe o cais de carga indicado'
+			SET @ErrorID=1
+			SET @resultDescription='Não existe o cais '+@LocationID
 		END
 		ELSE IF @Recordcount>1
 		BEGIN
-			SET @resultDescription='Existe mais do que um documento ativo' --na tabela DeliveryPoints
+			SET @ErrorID=2
+			SET @resultDescription='Mais do que um documento ativo' --na tabela DeliveryPoints
 		END
 		ELSE IF @LocationActif is null or @LocationActif=0
 		BEGIN
+			SET @ErrorID=3
 			SET @resultDescription='O cais não está ativo'
 		END
 		ELSE IF @LoadStatus is null or @LoadStatus=0
 		BEGIN
+			SET @ErrorID=4
 			SET @resultDescription='Carga não está ativa'
 		END
 		ELSE IF @DocID is null or @DocID=''
 		BEGIN
-			SET @resultDescription='Não existe nenhum documento ativo'
+			SET @ErrorID=5
+			SET @resultDescription='Nenhum documento ativo'
 		END
 		ELSE IF @SSCC1='' and @SSCC2=''
 		BEGIN
+			SET @ErrorID=6
 			SET @resultDescription='Não foi enviado nenhum SSCC'
 		END
 		ELSE IF @SSCC1<>'' and LEN(@SSCC1)<>18
 		BEGIN
+			SET @ErrorID=7
 			SET @resultDescription='Tamanho invalido do SSCC1'
 		END
 		ELSE IF @SSCC2<>'' and LEN(@SSCC2)<>18
 		BEGIN
+			SET @ErrorID=8
 			SET @resultDescription='Tamanho invalido do SSCC2'
 		END
-		ELSE IF @AlreadyReadedSSCC1 is not null
+		ELSE IF @AlreadyReadedSSCC1>0
 		BEGIN
-			SET @resultDescription='O (SSCC1) '+@SSCC1+CHAR(13)+CHAR(10)+'já foi lido'
+			SET @ErrorID=9
+			SET @resultDescription='Palete '+@SSCC1+CHAR(13)+CHAR(10)+'já foi carregada'
 		END
-		ELSE IF @AlreadyReadedSSCC2 is not null
+		ELSE IF @AlreadyReadedSSCC2>0
 		BEGIN
-			SET @resultDescription='O (SSCC2) '+@SSCC2+CHAR(13)+CHAR(10)+'já foi lido'
+			SET @ErrorID=9
+			SET @resultDescription='Palete '+@SSCC2+CHAR(13)+CHAR(10)+'já foi carregada'
 		END
+		/*
+		ELSE IF 
+			SET @ErrorID=14
+			SET @resultDescription='Palete 560121212121212122121 está bloqueada ou em quarentena'+CHAR(13)+CHAR(10)+Nota : A palete está bloqueada ou em quarentena, fale com o departamento de qualidade'
+		ELSE IF 
+			SET @ErrorID=15
+			SET @resultDescription='Lote LD62123 é diferente do lote LD62124 indicado na encomenda'+CHAR(13)+CHAR(10)+'Nota : O lote indicado na encomenda e diferente do da palete que esta a carregar, fale com o departamento administrativa para limpar o lote da encomenda'
+		ELSE IF 
+			SET @ErrorID=16
+			SET @resultDescription='Palete 560121212121212122121 não está disponível para este cliente, a palete está assignada ao cliente Pingo Doce Almada (121212212)'+CHAR(13)+CHAR(10)+'Nota : Esta palete está assignada a um cliente específicos, só pode ser enviada para o cliente indicado na palete, fale com o departamento administrativo caso deseje mudar o cliente assignado á palete'
+		ELSE IF 
+			SET @ErrorID=17
+			SET @resultDescription='Palete 560121212121212122121 já foi expedida na carga xxxxxxxxxxxx, no cais xx'+CHAR(13)+CHAR(10)+'Nota : Esta palete já foi expedida noutra carga, fale com o departamento administrativo'
+		ELSE IF 
+			SET @ErrorID=18
+			SET @resultDescription='Palete 560121212121212122121 já foi carregada na carga xxxxxxxxxxxx, no cais xx'+CHAR(13)+CHAR(10)+'Nota : Esta palete foi carregada na carga xx'
+		ELSE IF 
+			SET @ErrorID=19
+			SET @resultDescription='Lote LD121212 está bloqueado'+CHAR(13)+CHAR(10)+'Nota : Este lote está bloqueado para expedição'
+		ELSE IF 
+			SET @ErrorID=20
+			SET @resultDescription='Palete foi eliminada'+CHAR(13)+CHAR(10)+'Nota : esta palete foi eliminada , não é possível carregá-la'
+		*/
 		ELSE
 		BEGIN
 			BEGIN TRANSACTION
 			SET @inTransaction=1
-			/*
-			WAITFOR DELAY '00:00:00.200' 
-			SET @DateTimeTmp = GETDATE()
-			SET @stamp = @LocationID+'-' + dbo.u_Kapps_DateToString(@DateTimeTmp) + dbo.u_Kapps_TimeToString(@DateTimeTmp)
-			*/
+			SELECT @Recordcount=count(*) FROM u_Kapps__DummyLock (TABLOCKX)
 
 			DECLARE curSSCC CURSOR LOCAL STATIC READ_ONLY FORWARD_ONLY FOR
-			SELECT [Article], [Quantity], [Unit], [Lot], [ExpirationDate], [SerialNumber], [NetWeight], [CurrentWarehouse], [CurrentLocation], [HeaderSSCC]
+			SELECT RTRIM(Article), Quantity, Unit, Lot, ExpirationDate, SerialNumber, NetWeight, CurrentWarehouse, CurrentLocation, HeaderSSCC
 			FROM v_Kapps_SSCC_Lines WITH(NOLOCK) 
 			WHERE (HeaderSSCC<>'') and ((HeaderSSCC=@SSCC1) or (HeaderSSCC=@SSCC2));
 			OPEN curSSCC 
@@ -2437,17 +2412,26 @@ BEGIN
 
 			IF @@FETCH_STATUS <> 0
 			BEGIN
-				SET @ErrorMessage = 'SSCC não encontrado'
 				SET @ErrorSeverity = 16
 				SET @ErrorState = 1
+				SET @ErrorID=10
+				SET @ErrorMessage = 'Palete '+@SSCC1+' não existe'+CHAR(13)+CHAR(10)+'Nota: Esta palete não existe no Syslog, verifique junto da sua área administrativa se a palete foi criada no SYSLOG'
+
 				RAISERROR (@ErrorMessage, @ErrorSeverity, @ErrorState)			
 			END
-
 
 			WHILE @@FETCH_STATUS = 0
 			BEGIN
 				-- Verificar Stock
-				SET @sql= 'SELECT SUM(Total) as TempStock FROM 
+				/*
+				IF (1=0) -- Forçar a verificação de stock com o armazem associado ao cais
+				BEGIN
+					SET @CurrentWarehouse=@Armazem
+					SET @CurrentLocation=@Armazem
+				END
+				*/
+
+				SET @sql= 'SELECT @TempStock=SUM(Total) FROM
 				(
 				SELECT COALESCE(SUM(Stock),0) as Total 
 				FROM v_Kapps_Stock WITH(NOLOCK) 
@@ -2467,10 +2451,12 @@ BEGIN
 				IF @Lot<>''
 					SET @sql=@sql+' and Lot='''+@Lot+''''
 
-				SET @sql=@sql+' AND lin.Integrada = ''N'' and lin.Status = ''A'' and (lin.EntityType = ''C'' OR lin.EntityType = '''')
+				SET @sql=@sql+' AND lin.Integrada = ''N'' and lin.Status = ''A'' and (lin.EntityType = ''C'' OR lin.EntityType = '''')'
+
+				/*
 				UNION ALL
 				select COALESCE(sum(CASE WHEN va.UseWeight=1 THEN lin.NetWeight ELSE lin.qty END),0 ) AS Total 
-				from u_KApps_DossierLin lin WITH(NOLOCK) 
+				from u_Kapps_DossierLin lin WITH(NOLOCK) 
 				left join v_Kapps_Articles va WITH(NOLOCK) ON va.Code=lin.Ref
 				where lin.Ref = '''+RTRIM(@Article)+''' AND WarehouseOUT='''+@CurrentWarehouse+''''
 				IF @CurrentLocation<>''
@@ -2478,27 +2464,25 @@ BEGIN
 				IF @Lot<>''
 					SET @sql=@sql+' and Lot='''+@Lot+''''
 				
+				SET @sql=@sql+' AND lin.Integrada = ''N'' and lin.Status = ''A'' and lin.EntityType = ''''
+				*/
+				
+				SET @sql=@sql+' 
+				UNION ALL 
 
-				SET @sql=@sql+' AND lin.Integrada = ''N'' and lin.Status = ''A'' and lin.EntityType = '''''
+				select COALESCE(SUM(-lp.Qty),0)  
+				from u_Kapps_LoadingHeader h WITH(NOLOCK) 
+				LEFT JOIN u_Kapps_LoadingPallets lp WITH(NOLOCK) on lp.LoadNr=h.LoadNr 
+				LEFT JOIN u_Kapps_LoadingLocations ll WITH(NOLOCK) on ll.LocationID=h.LoadLocation 
+				LEFT JOIN u_Kapps_LoadingLines l on l.LoadNr=lp.LoadNr AND l.DocID=lp.DocID and l.LineID=lp.LineID
+				where h.LoadStatus<>1 and ll.WarehouseID='''+ @CurrentWarehouse+'''
+				and l.ProductID='''+RTRIM(@Article)+'''' 			
+				IF @Lot<>''
+					SET @sql=@sql+' and lp.Lot='''+@Lot+''''
+
+
+
 				SET @sql=@sql+' )temp'
-
-				INSERT INTO @tempTable exec (@sql)
-
-				SELECT @Stock=(Select TempStock from @tempTable)
-				DELETE FROM @tempTable
-
-				IF (@Stock<=0)
-				BEGIN
-					SET @ErrorMessage = 'Não existe stock do artigo ' + RTRIM(@Article)+' armazém '+@CurrentWarehouse
-					IF @CurrentLocation<>''
-						SET @ErrorMessage=@ErrorMessage+' localização '+@CurrentLocation
-					IF @Lot<>''
-						SET @ErrorMessage=@ErrorMessage+' lote '+@Lot
-					SET @ErrorSeverity = 16
-					SET @ErrorState = 1
-					RAISERROR (@ErrorMessage, @ErrorSeverity, @ErrorState)			
-				END
-
 
 
 				SET @Qtd = @Quantity
@@ -2523,22 +2507,41 @@ BEGIN
 						LineStatus=CASE WHEN @LineQuantity= @LineLoadedQuantity + @Qtd THEN 1 ELSE LineStatus END
 						WHERE id=@ID;
 
-						INSERT INTO u_Kapps_LoadingPallets(LoadNr, DocID, LineID, SSCC, Qty, Unit)
-						VALUES (CAST(@ActiveLoadNr as nvarchar(3)),@DocID,@LineID,@CurrentSSCC,@Qtd,@Unit)
+						INSERT INTO u_Kapps_LoadingPallets(LoadNr, DocID, LineID, SSCC, Qty, Unit, Lot, ExpirationDate)
+						VALUES (@ActiveLoadNr,@DocID,@LineID,@CurrentSSCC,@Qtd,@Unit,@Lot,@ExpirationDate)
 
-						/*
-						SET @sql='INSERT INTO u_Kapps_LoadingPallets(LoadNr, DocID, LineID, SSCC, Qty, Unit)';
-						SET @sql=@sql+ ' SELECT '+CAST(@ActiveLoadNr as nvarchar(3))+','''+ @DocID+''','''+ @LineID+''','''+@CurrentSSCC+''','+@Qtd+','''+@Unit+''''
-						EXEC (@sql)
-						*/
+						--
+						-- Verificar Stock 
+						--
+						EXEC sp_executesql @sql, N'@tempStock decimal(18,3) OUTPUT' , @TempStock=@Stock OUTPUT; 
 
+
+						IF (@Stock<0)
+						BEGIN
+							SET @ErrorID=11
+							select @Description=REPLACE(RTRIM(Description),'%',' ') from v_Kapps_Articles WHERE Code=@Article
+							SET @ErrorMessage = 'Não existe stock suficiente para o artigo '+@Description+' ('+@Article +')'
+							IF @Lot<>''
+							BEGIN
+								SET @ErrorMessage = @ErrorMessage +' do lote '+@Lot
+							END
+							SET @ErrorMessage = @ErrorMessage + ' no armazém '+@CurrentWarehouse
+
+							IF @CurrentLocation<>'' and @CurrentLocation<>@CurrentWarehouse
+							BEGIN
+								SET @ErrorMessage=@ErrorMessage+' localização '+@CurrentLocation
+							END
+							SET @ErrorMessage = @ErrorMessage +' (necessário '+CAST(@Quantity as varchar(20))+', stock de '+ CAST(@Stock as varchar(20))+')'
+
+							SET @ErrorSeverity = 16
+							SET @ErrorState = 1
+
+							RAISERROR (@ErrorMessage, @ErrorSeverity, @ErrorState)			
+						END
+						--
+						--
+						--
 					END
-					--ELSE
-					--BEGIN
-						-- Parcial???
-						--UPDATE u_Kapps_LoadingLines SET LoadedQuantity = LoadedQuantity + (@LineQuantity-@LineLoadedQuantity) WHERE id=@ID
-						--SET @QtdSatisfeita = @QtdSatisfeita + (@LineQuantity-@LineLoadedQuantity)					
-					--END
 
 	 				FETCH NEXT FROM curLINES INTO @ID, @LineID, @LineProductID, @LineLot, @LineQuantity, @LineQuantityUnit, @LineLoadedQuantity;
 				END
@@ -2568,28 +2571,46 @@ BEGIN
 							LineStatus=CASE WHEN @LineQuantity= @LineLoadedQuantity + @Qtd THEN 1 ELSE LineStatus END
 							WHERE id=@ID;
 
-							INSERT INTO u_Kapps_LoadingPallets(LoadNr, DocID, LineID, SSCC, Qty, Unit)
-							VALUES (CAST(@ActiveLoadNr as nvarchar(3)),@DocID,@LineID,@CurrentSSCC,@Qtd,@Unit)
+							INSERT INTO u_Kapps_LoadingPallets(LoadNr, DocID, LineID, SSCC, Qty, Unit, Lot, ExpirationDate)
+							VALUES (@ActiveLoadNr,@DocID,@LineID,@CurrentSSCC,@Qtd,@Unit,@Lot,@ExpirationDate)
 
-							/*
-							SET @sql='INSERT INTO u_Kapps_LoadingPallets(LoadNr, DocID, LineID, SSCC, Qty, Unit)';
-							SET @sql=@sql+ ' SELECT '+CAST(@ActiveLoadNr as nvarchar(3))+','''+ @DocID+''','''+ @LineID+''','''+@CurrentSSCC+''','+@Qtd+','''+@Unit+''''
-							EXEC (@sql)
-							*/
+							--
+							-- Verificar Stock 
+							--
+							EXEC sp_executesql @sql, N'@tempStock decimal(18,3) OUTPUT' , @TempStock=@Stock OUTPUT; 
 
+
+							IF (@Stock<0)
+							BEGIN
+								SET @ErrorID=11
+								select @Description=REPLACE(RTRIM(Description),'%',' ') from v_Kapps_Articles WHERE Code=@Article
+								SET @ErrorMessage = 'Não existe stock suficiente para o artigo '+@Description+' ('+@Article +')'
+								IF @Lot<>''
+								BEGIN
+									SET @ErrorMessage = @ErrorMessage +' do lote '+@Lot
+								END
+								SET @ErrorMessage = @ErrorMessage + ' no armazém '+@CurrentWarehouse
+
+								IF @CurrentLocation<>'' and @CurrentLocation<>@CurrentWarehouse
+								BEGIN
+									SET @ErrorMessage=@ErrorMessage+' localização '+@CurrentLocation
+								END
+								SET @ErrorMessage = @ErrorMessage +' (necessário '+CAST(@Quantity as varchar(20))+', stock de '+ CAST(@Stock as varchar(20))+')'
+
+								SET @ErrorSeverity = 16
+								SET @ErrorState = 1
+
+								RAISERROR (@ErrorMessage, @ErrorSeverity, @ErrorState)			
+							END
+							--
+							--
+							--
 						END
-						--ELSE
-						--BEGIN
-							-- Parcial???
-							--UPDATE u_Kapps_LoadingLines SET LoadedQuantity = LoadedQuantity + (@LineQuantity-@LineLoadedQuantity) WHERE id=@ID
-							--SET @QtdSatisfeita = @QtdSatisfeita + (@LineQuantity-@LineLoadedQuantity)					
-						--END
 
 	 					FETCH NEXT FROM curLINES INTO @ID, @LineID, @LineProductID, @LineLot, @LineQuantity, @LineQuantityUnit, @LineLoadedQuantity;
 					END
 				END
 				
-
 				IF (@Qtd=@QtdSatisfeita)
 				BEGIN
 					IF NOT EXISTS (SELECT TOP 1 1 FROM u_Kapps_LoadingLines WHERE LoadNr=@ActiveLoadNr and DocID=@DocID and LineStatus=0 and LoadedQuantity<>Quantity)
@@ -2609,25 +2630,28 @@ BEGIN
 							BEGIN
 								UPDATE u_Kapps_LoadingDeliveryPoints SET Actif=1 WHERE LoadNr=@ActiveLoadNr and DocID=@NextDocID
 							END
-							ELSE
-							BEGIN
-								UPDATE u_Kapps_LoadingHeader 
-								SET LoadStatus=CASE WHEN EXISTS(SELECT TOP 1 1 FROM u_Kapps_LoadingLines WHERE LoadNr=@ActiveLoadNr and LineStatus=2) THEN 2 ELSE 1 END 
-								WHERE LoadNr=@ActiveLoadNr;
-							END
 						END
 					END
 				END
 				ELSE
 				BEGIN
-					select @Description=Description from v_Kapps_Articles WHERE Code=@Article
+					select @Description=REPLACE(RTRIM(Description),'%',' ') from v_Kapps_Articles WHERE Code=@Article
 					IF @QtdSatisfeita>0
-						SET @ErrorMessage = 'Não foi possivel satisfazer a quantidade total do artigo ' +CHAR(13)+CHAR(10)+ RTRIM(@Article)+ CHAR(13)+CHAR(10) +@Description;
+					BEGIN
+						SET @ErrorID=12
+						SET @ErrorMessage = 'Não foi possível satisfazer a quantidade total do artigo '+@Description+' ('+RTRIM(@Article)+')';
+					END
 					ELSE
-						SET @ErrorMessage = 'O artigo não existe por satisfazer no documento ativo ' +CHAR(13)+CHAR(10)+ RTRIM(@Article) +CHAR(13)+CHAR(10)+ @Description
+					BEGIN
+						SET @ErrorID=13
+						SET @ErrorMessage = 'Artigo '+@Description+' ('+@Article+') não faz parte do documento de carga ('+@TPD+' '+@SEC+'/'+@NDC+')' +CHAR(13)+CHAR(10)+'Nota : O(s) artigo(s) do SSCC não fazem parte da encomenda(s) selecionada(s) para a carga)'
+					END
 
 					IF @Lot<>''
+					BEGIN
 						SET @ErrorMessage=@ErrorMessage+CHAR(13)+CHAR(10)+'Lote '+@Lot
+					END
+					
 					SET @ErrorSeverity = 16
 					SET @ErrorState = 1
 
@@ -2648,21 +2672,18 @@ BEGIN
 
 	 			FETCH NEXT FROM curSSCC INTO @Article, @Quantity, @Unit, @Lot, @ExpirationDate, @SerialNumber, @NetWeight, @CurrentWarehouse, @CurrentLocation, @CurrentSSCC;
 			END
-
-			/*
-			SET @sql='INSERT INTO u_Kapps_LoadingPallets(LoadNr, DocID, SSCC)';
-			SET @sql=@sql+ ' SELECT '+CAST(@ActiveLoadNr as nvarchar(3))+','''+ @DocID+''','''+@SSCC1+''''
-			IF (@SSCC2<>'')
-			BEGIN
-				SET @sql= @sql+ ' UNION ALL SELECT '+CAST(@ActiveLoadNr as nvarchar(3))+','''+ @DocID+''','''+@SSCC2+''''
-			END
-			EXEC (@sql)
-			*/
-			
+	
 			SET @result = 1
-			SET @resultDescription = 'OK'
+			SET @resultDescription = 'OK,'+ @LocationID+','+ @SSCC1 + ','+ @SSCC2
+
+			INSERT INTO u_Kapps_LoadingLog(LoadNr, ErrorDate, ErrorTime, ErrorID, ErrorDescription)
+			VALUES (@ActiveLoadNr, CONVERT(VARCHAR, GETDATE(), 112), LEFT(REPLACE(CONVERT(VARCHAR, GETDATE(), 114), ':', ''),6), @ErrorID, @resultDescription);
 
 			COMMIT TRANSACTION
+		END
+		IF @result=0
+		BEGIN
+			SET @resultDescription = '('+CAST(@ErrorID as varchar(3))+') ' + @resultDescription
 		END
 	END TRY
 	BEGIN CATCH
@@ -2672,18 +2693,29 @@ BEGIN
 			ROLLBACK TRANSACTION
 		END
 		SET @result = 0
-		SET @resultDescription = @ErrorMessage
+		SET @resultDescription = '('+CAST(@ErrorID as varchar(3))+') ' + @ErrorMessage 
 					
-		RAISERROR (@ErrorMessage, @ErrorSeverity, @ErrorState)
+		INSERT INTO u_Kapps_LoadingLog(LoadNr, ErrorDate, ErrorTime, ErrorID, ErrorDescription)
+		VALUES (@ActiveLoadNr, CONVERT(VARCHAR, GETDATE(), 112), LEFT(REPLACE(CONVERT(VARCHAR, GETDATE(), 114), ':', ''),6), @ErrorID, @resultDescription+ ''''+@LocationID+''', '''+@SSCC1 +''', '''+ @SSCC2+ '''');
 
-		INSERT INTO u_Kapps_Log(LogStamp,LogType,LogMessage,LogDetail,LogTerminal) 
-		VALUES (CONVERT(VARCHAR, GETDATE(), 112) + REPLACE(CONVERT(VARCHAR, GETDATE(), 114), ':', ''),1,''''+@LocationID+''', '''+@SSCC1 +''', '''+ @SSCC2+ '''', RTRIM(@ErrorMessage), @LocationID)
+		IF @ErrorID=0
+		BEGIN
+			RAISERROR (@ErrorMessage, @ErrorSeverity, @ErrorState)
+		END
+		SET @ErrorID=0
 
 	END CATCH
 
 
 	FIM:
 
+
+	IF @ErrorID>0
+	BEGIN
+		SET @resultDescription=@resultDescription+' ('+@LocationID+','''+@SSCC1+''','''+@SSCC2+''')'
+		INSERT INTO u_Kapps_LoadingLog(LoadNr, ErrorDate, ErrorTime, ErrorID, ErrorDescription)
+		VALUES (@ActiveLoadNr, CONVERT(VARCHAR, GETDATE(), 112), LEFT(REPLACE(CONVERT(VARCHAR, GETDATE(), 114), ':', ''),6), @ErrorID, @resultDescription);
+	END
 
 	IF @ActivoCurSSCC=1
 	BEGIN
@@ -2700,6 +2732,391 @@ BEGIN
 END
 GO
 
+
+
+IF EXISTS (SELECT object_id FROM sys.objects WHERE object_id = OBJECT_ID(N'SP_u_Kapps_UpdateStatus') AND type IN (N'P', N'PC'))
+	DROP PROCEDURE SP_u_Kapps_UpdateStatus
+GO
+
+CREATE PROCEDURE SP_u_Kapps_UpdateStatus
+	@inStampLinList NVARCHAR(4000), 
+	@inTerminal CHAR(5), 
+	@inParameterGroup CHAR(100), 
+	@inUserIntegracao VARCHAR(50), 
+	@inSQL VARCHAR(max), 
+	@inDelete AS BIT
+AS
+BEGIN
+	--
+	-- Esta SP é executada para atualizar as quantidades alternativas
+	--
+	SET NOCOUNT ON;
+
+	DECLARE @tempSQL VARCHAR(max)
 	
-UPDATE u_Kapps_Parameters SET ParameterValue = '52'  WHERE ParameterGroup='MAIN' and ParameterID = 'SCRIPTSVERSION'
+	DECLARE @estado VARCHAR(3)
+	DECLARE @descerro VARCHAR(255)
+	DECLARE @DateStr CHAR(8)
+	DECLARE @TimeStr CHAR(11)
+	DECLARE @DateTimeTmp DATETIME
+	DECLARE @StampLin NVARCHAR(50)
+	DECLARE @StampBo NVARCHAR(50)
+	DECLARE @StampBi NVARCHAR(50)
+	DECLARE @Qty DECIMAL(18, 3)
+	DECLARE @Qty2 DECIMAL(18, 3)
+	DECLARE @QtyUM NVARCHAR(25)
+	DECLARE @Qty2UM NVARCHAR(25)
+	DECLARE @Peso NUMERIC(18, 3)
+	DECLARE @UseWeight BIT
+	DECLARE @ErrorMessage NVARCHAR(4000)
+	DECLARE @ErrorSeverity INT
+	DECLARE @ErrorState INT
+	DECLARE @ERP VARCHAR(25)
+	DECLARE @TempTable table (StampLin nvarchar(50));
+	DECLARE @qttPallet varchar(25)
+	DECLARE @HeaderID varchar(50)
+	DECLARE @LineID varchar(50)
+	DECLARE @UpdateTable varchar(25)
+
+	SET @estado = 'NOK'
+	SET @descerro = 'Erro a integrar'
+	SET @qttPallet = ''
+	SET @HeaderID= ''
+	SET @LineID = ''
+	SET @UpdateTable = ''
+
+	BEGIN TRY
+		BEGIN TRANSACTION
+
+		SELECT @ERP = COALESCE(ParameterValue, '')
+		FROM u_Kapps_Parameters WITH (NOLOCK)
+		WHERE ParameterGroup = 'MAIN' AND ParameterId = 'ERP'
+
+		set @tempSQL = 'SELECT StampLin FROM u_Kapps_DossierLin WHERE StampLin in ('+@inStampLinList+')';
+		INSERT INTO @TempTable(StampLin) exec (@tempSQL)
+
+		DECLARE curKappsDossiers CURSOR LOCAL STATIC READ_ONLY FORWARD_ONLY
+		FOR
+		SELECT COALESCE(StampLin, ''), COALESCE(StampBo, ''), COALESCE(StampBi, ''), COALESCE(Qty, 0) AS Qty, COALESCE(QtyUM, '') AS QtyUM, COALESCE(Qty2, 0) AS Qty2, COALESCE(Qty2UM, '') AS QtyUM2, COALESCE(NetWeight, 0), COALESCE(UseWeight, 0)
+		FROM u_Kapps_DossierLin WITH (NOLOCK)
+		LEFT JOIN v_Kapps_Articles art ON art.Code = Ref
+		WHERE (StampLin IN (SELECT StampLin FROM @TempTable))
+
+		OPEN curKappsDossiers
+
+		FETCH NEXT
+		FROM curKappsDossiers
+		INTO @StampLin, @StampBo, @StampBi, @Qty, @QtyUM, @Qty2, @Qty2UM, @Peso, @UseWeight
+
+		IF @@FETCH_STATUS<0
+		BEGIN
+			RAISERROR ('Linha não encontrada', 16,1)
+		END
+
+		WHILE @@FETCH_STATUS = 0
+		BEGIN
+			SET @DateTimeTmp = GETDATE()
+			SET @DateStr = dbo.u_Kapps_DateToString(@DateTimeTmp)
+			SET @TimeStr = dbo.u_Kapps_TimeToString(@DateTimeTmp)
+
+			IF (@UseWeight = 1)
+			BEGIN
+				SET @Qty = @Peso
+			END
+
+			IF @inDelete = 1
+			BEGIN
+				SET @Qty2 = - @Qty2
+			END
+
+			IF UPPER(@erp) = 'PHC'
+			BEGIN
+				SET @qttPallet = 'u_qttPallet'
+				SET @HeaderID = 'StampBo'
+				SET @LineID = 'StampLin'
+				SET @UpdateTable = 'bi'
+
+			END
+			ELSE IF UPPER(@erp) = 'PRIMAVERA'
+			BEGIN
+				SET @qttPallet = 'CDU_qttPallet'
+				SET @HeaderID = 'IdCabecDoc'
+				SET @LineID = 'id'
+				SET @UpdateTable = 'LinhasDoc'
+			END
+
+			-- atualiza a quantidade na linha de origem
+			EXEC ('UPDATE ' + @UpdateTable +' SET '+ @qttPallet + ' = ' + @qttPallet + ' + ' + @Qty2 + ' WHERE ' + @HeaderID + ' = ''' + @StampBo + ''' and ' + @LineID + ' = ''' + @StampBi + '''')
+
+			-- atualiza data, hora e utilizador na linha 
+
+			SET @ErrorMessage = 'UPDATE u_Kapps_DossierLin
+			SET DataIntegracao = ''' + @DateStr + ''', HoraIntegracao = SUBSTRING(' + @TimeStr + ', 1, 6), UserIntegracao = ''' + @InUserIntegracao + '''
+			WHERE ' + @HeaderID + ' = ''' + @StampBo + ' AND ' + @LineID + ' = ''' + @StampLin + ''' AND STATUS = ''I''';
+
+			UPDATE u_Kapps_DossierLin
+			SET DataIntegracao = @DateStr, HoraIntegracao = SUBSTRING(@TimeStr, 1, 6), UserIntegracao = @InUserIntegracao
+			WHERE StampBo = @StampBo AND StampLin = @StampLin AND STATUS = 'I'
+
+			FETCH NEXT
+			FROM curKappsDossiers
+			INTO @StampLin, @StampBo, @StampBi, @Qty, @QtyUM, @Qty2, @Qty2UM, @Peso, @UseWeight
+		END
+
+		IF (@inSQL <> '')
+		BEGIN
+			EXEC (@inSQL)
+		END
+
+		SET @estado = 'OK'
+		SET @descerro = ''
+
+		COMMIT TRANSACTION
+	END TRY
+
+	BEGIN CATCH
+		SELECT @ErrorMessage = ERROR_MESSAGE(), @ErrorSeverity = ERROR_SEVERITY(), @ErrorState = ERROR_STATE()
+
+		ROLLBACK TRANSACTION
+
+		SET @estado = 'NOK'
+		SET @descerro = @ErrorMessage
+
+		RAISERROR (@ErrorMessage, @ErrorSeverity, @ErrorState)
+
+		INSERT INTO u_Kapps_Log (LogStamp, LogType, LogMessage, LogDetail, LogTerminal)
+		VALUES (CONVERT(VARCHAR, GETDATE(), 112) + REPLACE(CONVERT(VARCHAR, GETDATE(), 114), ':', ''), 10, '''' + RTRIM(@inStampLinList) + ''',  ''' + RTRIM(@inTerminal) + ''', ''' + RTRIM(@inParameterGroup) + ''', ''' + RTRIM(@InUserIntegracao) + '''', RTRIM(@ErrorMessage), @inTerminal)
+
+		GOTO FIM
+	END CATCH
+
+	FIM:
+
+	CLOSE curKappsDossiers
+
+	DEALLOCATE curKappsDossiers
+
+	--
+	-- Deve retornar apenas um result set com 
+	--
+	-- @estado 			OK ou NOK 
+	-- @descerro 		Descrição do erro
+	--
+	SELECT @estado, @descerro
+END
+GO
+
+
+
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SPMSS_Reconstroi_APPSP_USR') AND type in (N'P', N'PC'))
+DROP PROCEDURE SPMSS_Reconstroi_APPSP_USR
+GO
+CREATE PROCEDURE SPMSS_Reconstroi_APPSP_USR
+	@name varchar(50)	
+AS
+BEGIN
+	SET NOCOUNT ON;
+
+	DECLARE @spsql varchar(MAX)
+	DECLARE @spsqlnovo varchar(MAX)
+
+	SET @spsql = ''
+
+	SET @spsql = (select (substring(sm.definition, charindex('SET NOCOUNT ON;', RTRIM(sm.definition)) + 16, LEN(sm.definition) - (charindex('SET NOCOUNT ON;', sm.definition) + 15)))
+		from sys.sql_modules as sm JOIN sys.objects AS o ON sm.object_id = o.object_id where o.type = 'P'
+		and OBJECT_NAME(sm.object_id) = @name)
+
+	IF (@spsql <> '')
+	BEGIN
+						
+					
+		IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SP_u_Kapps_DossiersLinUSR') AND type in (N'P', N'PC'))
+			DROP PROCEDURE SP_u_Kapps_DossiersLinUSR
+						
+		SET @spsqlnovo = 'CREATE PROCEDURE SP_u_Kapps_DossiersLinUSR
+	@DocTipo CHAR(5),				-- Tipo do documento da aplicação (DCO ou DSO)
+	@InternalStampDoc NVARCHAR(50),	-- Stamp do documento origem se DCO ou InternalStampDoc se DSO
+	@ndos VARCHAR(50),				-- Numero do dossier de destino
+	@fecha CHAR(5),					-- Se encerra o documento de origem
+	@bostamp VARCHAR(25),			-- StampBo do documento criado
+	@bistamp VARCHAR(25),			-- StampLin da linha u_Kapps_DossierLin
+	@ref VARCHAR(18),				-- Código do artigo
+	@Linha INT,						-- Numero da linha criada na BI
+	@bistampOrigem CHAR(25)			-- StampBi da linha de origem
+AS
+BEGIN
+	SET NOCOUNT ON; ' + @spsql
+							
+		EXEC (@spsqlnovo)
+
+	END
+END
+GO
+EXEC SPMSS_Reconstroi_APPSP_USR 'SP_u_Kapps_DossiersLinUSR'
+GO
+
+
+
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SP_u_Kapps_CheckUserPermission') AND type in (N'P', N'PC'))
+DROP PROCEDURE SP_u_Kapps_CheckUserPermission
+GO
+CREATE PROCEDURE SP_u_Kapps_CheckUserPermission
+	@UserId VARCHAR(50), 
+	@FunctionId VARCHAR(50)
+AS
+BEGIN
+	SET NOCOUNT ON;
+
+	DECLARE @Estado BIT
+	DECLARE @DescErro VARCHAR(255)
+	DECLARE @UserType VARCHAR(1)
+	DECLARE @UserActif BIT
+
+	-- Catch all
+	SET @Estado = 0
+	SET @DescErro = 'Sem acesso'
+	SET @UserType = ''
+
+	-- Check parameters
+	IF @UserId = ''
+	BEGIN
+		SET @Estado = 0
+		SET @DescErro = 'Utilizador não especificado'
+
+		GOTO SendResult
+	END
+
+	IF @FunctionId = ''
+	BEGIN
+		SET @Estado = 0
+		SET @DescErro = 'Função desconhecida'
+
+		GOTO SendResult
+	END
+
+	-- Check if user exists
+	SELECT @UserType = IsAdmin, @UserActif = Actif FROM u_Kapps_Users WHERE Username = @UserId
+
+	IF @UserType = '' OR @UserType = NULL
+	BEGIN
+		SET @Estado = 0
+		SET @DescErro = 'O utilizador não existe ou não foi encontrado'
+
+		GOTO SendResult
+	END
+	ELSE
+	BEGIN
+		IF @UserActif = 0
+		BEGIN
+			SET @Estado = 0
+			SET @DescErro = 'O utilizador não se encontra ativo'
+
+			GOTO SendResult
+		END
+
+		IF @UserType = '1'
+		BEGIN
+			SET @Estado = 1
+			SET @DescErro = ''
+
+			GOTO SendResult
+		END
+	END
+
+	-- Check permission
+	IF EXISTS (
+			SELECT *
+			FROM u_Kapps_UsersPermissions
+			WHERE UserID = @UserId AND FunctionId = @FunctionId
+			)
+	BEGIN
+		SET @Estado = 1
+		SET @DescErro = ''
+
+		GOTO SendResult
+	END
+	ELSE
+	BEGIN
+		SET @Estado = 0
+		SET @DescErro = 'O utilizador não tem acesso'
+
+		GOTO SendResult
+	END
+
+	SendResult:
+
+	--
+	-- Deve retornar apenas um result set com: 
+	--
+	-- @estado 			OK=1 ou NOK=0 
+	-- @descerro 		Descrição do erro
+	--
+	SELECT @Estado, @DescErro
+
+	RETURN
+END
+GO
+
+
+
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SP_u_Kapps_InsertLot') AND type in (N'P', N'PC'))
+DROP PROCEDURE SP_u_Kapps_InsertLot
+GO
+CREATE PROCEDURE SP_u_Kapps_InsertLot
+	@Lot VARCHAR(30),					-- Lot
+	@Ref VARCHAR(18),					-- Article
+	@Description VARCHAR(60),			-- Description
+	@ProductionDate VARCHAR(8),			-- Production date
+	@ExpirationDate VARCHAR(8),			-- Expiration date
+	@UserID VARCHAR(30)					-- Username
+AS
+BEGIN
+	SET NOCOUNT ON;
+
+	DECLARE @DateTimeTmp DATETIME
+	DECLARE @sestamp CHAR(25) 
+	DECLARE @DateStr CHAR(8)
+	DECLARE @TimeStr CHAR(11)
+	DECLARE @Time VARCHAR(8)
+	DECLARE @result bit
+	DECLARE @ousrinis VARCHAR(30)
+	
+	SET @result = 0;
+
+	-- se não existir o lote tem de se criar
+	IF @Lot <> ''
+	BEGIN
+		IF (SELECT COUNT(*) FROM se  WITH(NOLOCK) WHERE ref = @Ref AND lote = @Lot) = 0
+		BEGIN  
+			WAITFOR DELAY '00:00:00.200'
+
+			SET @DateTimeTmp = GETDATE()
+			SET @DateStr = dbo.u_Kapps_DateToString(@DateTimeTmp)
+			SET @TimeStr = dbo.u_Kapps_TimeToString(@DateTimeTmp)		
+
+			IF @ProductionDate=''
+			BEGIN
+				SET @ProductionDate = @DateStr
+			END
+
+			SET @sestamp = 'Syslog_' + @DateStr + @TimeStr
+			SET @ousrinis = @UserID + '-' + @DateStr
+		
+			SET @Time = LEFT(@TimeStr, 2) + ':' + SUBSTRING(@TimeStr, 3, 2) + ':' + SUBSTRING(@TimeStr, 5, 2)
+
+			INSERT INTO se (sestamp, ref, lote, design, data, validade, ousrinis, ousrdata, ousrhora, usrinis, usrdata, usrhora) 
+				VALUES (@sestamp, @Ref, UPPER(@Lot), @Description, @ProductionDate, @ExpirationDate, @ousrinis, @DateStr, @Time, @ousrinis, @DateStr, @Time)
+
+			SET @result=1
+		END
+	END
+
+	SELECT @result
+
+END
+GO
+
+
+
+UPDATE u_Kapps_Parameters SET ParameterValue = '59'  WHERE ParameterGroup='MAIN' and ParameterID = 'SCRIPTSVERSION'
 GO

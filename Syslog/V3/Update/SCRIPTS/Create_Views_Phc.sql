@@ -89,10 +89,6 @@ select bc.ref as Code, bc.codigo as Barcode, art.Unidade as Unit, bc.qtt as Quan
 from bc (NOLOCK)
 JOIN st art (NOLOCK) on art.Ref = bc.ref
 where art.inactivo = 0
-UNION ALL
-SELECT art.ref as Code, art.codigo as Barcode, art.unidade as Unit, 1 as Quantity
-FROM st art WITH(NOLOCK)
-WHERE art.inactivo = 0 AND art.codigo NOT LIKE ''
 GO
 
 

@@ -12,10 +12,11 @@ select cli.OrganizationName as NAME, cli.CustomerID as Code
 , LocalityName As Area
 , CountryName As Country
 , Telephone1 As Phone
-, '' as Latitude
-, '' as Longitude
+, CAST(0 as numeric(10,6)) as Latitude
+, CAST(0 as numeric(10,6)) as Longitude
 , Comments as OBS
 , 0 AS InternalCustomer						-- 0 Externo, 1 Interno
+, cli.OrganizationName As ShortName
 FROM Customer cli (NOLOCK)
 left join PartyAddress (NOLOCK) on cli.PartyID = PartyAddress.PartyID left join CountryCodes on PartyAddress.CountryID = CountryCodes.CountryID
 left join LocalityCodes (NOLOCK) on LocalityCodes.CountryID = PartyAddress.CountryID AND LocalityCodes.ProvinceID = PartyAddress.ProvinceID AND LocalityCodes.LocalityID = PartyAddress.LocalityID
@@ -36,8 +37,8 @@ select forn.OrganizationName as NAME, forn.SupplierID as Code
 , LocalityName As Area
 , CountryName As Country
 , Telephone1 As Phone
-, '' as Latitude
-, '' as Longitude
+, CAST(0 as numeric(10,6)) as Latitude
+, CAST(0 as numeric(10,6)) as Longitude
 , Comments as OBS
 FROM Supplier forn (NOLOCK)
 left join PartyAddress (NOLOCK) on forn.PartyID = PartyAddress.PartyID left join CountryCodes on PartyAddress.CountryID = CountryCodes.CountryID
@@ -101,8 +102,9 @@ case when Item.StockManagement = 1 then 1 else 0 end AS 'MovStock', '' as 'Filte
 , 0 as LoteControlOut									-- 0-Manual 1-FIFO, 2-FEFO, 3-LIFO
 , 0 as UseExpirationDate
 , CAST(0 as bit) as UseWeight							-- (1-Sim) (0-Não)
-, 0 AS StoreInNrDays
-, 0 AS StoreOutNrDays
+, 0 AS StoreInNrDays									-- Nº de dias minimo de validade na receção (excepto se existir regra a contrariar em [Validades mínimas])
+, 0 AS StoreOutNrDays									-- Nº de dias minimo de validade na expedição (excepto se existir regra a contrariar em [Validades mínimas])
+, CAST(0 as int) AS BoxMaxQuantity
 from Item (nolock) join ItemNames (nolock) on Item.ItemID=ItemNames.ItemID where ItemNames.LanguageID='PTG' and Discontinued=0
 GO
 
@@ -141,15 +143,15 @@ IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'[dbo].[v_Kapps
 DROP view [dbo].[v_Kapps_Lots]
 GO
 CREATE view [dbo].[v_Kapps_Lots] as 
-SELECT sp.PropertyValue1 as Lot, 
-sp.itemid as Article,
-sp.warehouseid as Warehouse,
-ISNULL(sp.ExpirationDate, CAST('29991231' as  datetime)) as ExpirationDate,
-sp.PhysicalQty as Stock
-,'' as Location
-,sp.ProductionDate AS ProductionDate
-FROM StockProperty sp (nolock)  join item (nolock) on sp.ItemID=Item.ItemID
-WHERE sp.FirstTransDocNumber<>0
+select 
+sp.PropertyValue1 as Lot
+, sp.itemid as Article
+, ISNULL(sp.ExpirationDate, CAST('29991231' as  datetime)) as ExpirationDate
+, sp.ProductionDate AS ProductionDate
+, CAST(1 as bit) as Actif
+from StockProperty sp (nolock)
+join item (nolock) on sp.ItemID=Item.ItemID
+where sp.FirstTransDocNumber<>0
 and sp.PropertyValue1<>''
 and sp.PropertyValue2=''
 and Item.Discontinued=0
@@ -215,7 +217,7 @@ cab.TransDocNumber as NDC,
 ,'' as Barcode
 from SaleTransaction (nolock) cab join Customer (nolock) c on cab.PartyID=c.PartyID 
 join DocumentsName (nolock) d on cab.TransDocument=d.TransDocumentID
-left join u_KApps_DossierLin (NOLOCK) on (u_KApps_DossierLin.StampBo = (cab.TransSerial+'*'+ cab.TransDocument+'*'+cast(YEAR(cab.CreateDate)as varchar(4))+'*'+CAST(cab.TransDocNumber as varchar(12)))) and u_KApps_DossierLin.Status <> 'X' and u_KApps_DossierLin.Integrada = 'N'
+left join u_Kapps_DossierLin (NOLOCK) on (u_Kapps_DossierLin.StampBo = (cab.TransSerial+'*'+ cab.TransDocument+'*'+cast(YEAR(cab.CreateDate)as varchar(4))+'*'+CAST(cab.TransDocNumber as varchar(12)))) and u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N'
 where cab.TransStatus=0
 and cab.TransactionConverted=0
 and d.LanguageID='PTG'
@@ -235,19 +237,19 @@ LEFT(n.Description,100) as 'Description',
 (lin.DestinationQuantity) as 'QuantitySatisfied',
 ((lin.Quantity) - (lin.DestinationQuantity)) -
 	   (
-	   select isnull(sum(u_KApps_DossierLin.Qty2),0) 
-       from u_KApps_DossierLin (NOLOCK) 
-       where u_KApps_DossierLin.Status <> 'X' 
-       and u_KApps_DossierLin.Integrada = 'N'      
-       and ((cast(lin.TransSerial AS VARCHAR(10)) + '*' + cast(lin.TransDocument AS VARCHAR(50)) + '*' + cast(year(lin.CreateDate) AS VARCHAR(20)) + '*' + CAST(lin.TransDocNumber as varchar(10))) = u_KApps_DossierLin.Stampbo)
-       and ((cast(lin.TransDocNumber as varchar(10))+'*' + cast (lin.LineItemID as varchar(15))+'_'+cast (lin.LineItemSubID as varchar(15))) = u_KApps_DossierLin.Stampbi)
+	   select isnull(sum(u_Kapps_DossierLin.Qty2),0) 
+       from u_Kapps_DossierLin (NOLOCK) 
+       where u_Kapps_DossierLin.Status = 'A' 
+       and u_Kapps_DossierLin.Integrada = 'N'      
+       and ((cast(lin.TransSerial AS VARCHAR(10)) + '*' + cast(lin.TransDocument AS VARCHAR(50)) + '*' + cast(year(lin.CreateDate) AS VARCHAR(20)) + '*' + CAST(lin.TransDocNumber as varchar(10))) = u_Kapps_DossierLin.Stampbo)
+       and ((cast(lin.TransDocNumber as varchar(10))+'*' + cast (lin.LineItemID as varchar(15))+'_'+cast (lin.LineItemSubID as varchar(15))) = u_Kapps_DossierLin.Stampbi)
        ) as 'QuantityPending',
-	   (select isnull(sum(u_KApps_DossierLin.Qty2),0)
-       from u_KApps_DossierLin (NOLOCK) 
-       where u_KApps_DossierLin.Status <> 'X' 
-       and u_KApps_DossierLin.Integrada = 'N' 
-       and ((cast(lin.TransSerial AS VARCHAR(10)) + '*' + cast(lin.TransDocument AS VARCHAR(50)) + '*' + cast(year(lin.CreateDate) AS VARCHAR(20)) + '*' + CAST(lin.TransDocNumber as varchar(10))) = u_KApps_DossierLin.StampBo)
-       and ((cast(lin.TransDocNumber as varchar(10))+'*' + cast (lin.LineItemID as varchar(15))+'_'+cast (lin.LineItemSubID as varchar(15))) = u_KApps_DossierLin.Stampbi)
+	   (select isnull(sum(u_Kapps_DossierLin.Qty2),0)
+       from u_Kapps_DossierLin (NOLOCK) 
+       where u_Kapps_DossierLin.Status = 'A' 
+       and u_Kapps_DossierLin.Integrada = 'N' 
+       and ((cast(lin.TransSerial AS VARCHAR(10)) + '*' + cast(lin.TransDocument AS VARCHAR(50)) + '*' + cast(year(lin.CreateDate) AS VARCHAR(20)) + '*' + CAST(lin.TransDocNumber as varchar(10))) = u_Kapps_DossierLin.StampBo)
+       and ((cast(lin.TransDocNumber as varchar(10))+'*' + cast (lin.LineItemID as varchar(15))+'_'+cast (lin.LineItemSubID as varchar(15))) = u_Kapps_DossierLin.Stampbi)
        ) as 'QuantityPicked',
 art.UnitOfSaleID as 'BaseUnit',
 lin.UnitOfSaleID as 'BusyUnit',
@@ -269,6 +271,7 @@ YEAR(lin.CreateDate) as EXR,
 lin.TransSerial as SEC,
 lin.TransDocument as TPD,
 lin.TransDocNumber as NDC
+, '' as 'Filter1','' as 'Filter2','' as 'Filter3','' as 'Filter4','' as 'Filter5'
 , '' AS Location
 , ISNULL((SELECT PropertyValue1 FROM TransactionPropDetails det WITH(NOLOCK) WHERE det.TransSerial=lin.TransSerial and det.TransDocument= lin.TransDocument and det.TransDocNumber=lin.TransDocNumber and det.LineItemID=lin.LineItemID and det.LineItemSubID=lin.LineItemSubID),'') AS Lot
 , '' as PalletType
@@ -312,7 +315,7 @@ cab.TransDocNumber as NDC,
 ,'' as Barcode
 from SaleTransaction (nolock) cab join Customer (nolock) c on cab.PartyID=c.PartyID 
 join DocumentsName (nolock) d on cab.TransDocument=d.TransDocumentID
-left join u_KApps_DossierLin (NOLOCK) on (u_KApps_DossierLin.StampBo = (cab.TransSerial+'*'+ cab.TransDocument+'*'+cast(YEAR(cab.CreateDate)as varchar(4))+'*'+CAST(cab.TransDocNumber as varchar(12)))) and u_KApps_DossierLin.Status <> 'X' and u_KApps_DossierLin.Integrada = 'N'
+left join u_Kapps_DossierLin (NOLOCK) on (u_Kapps_DossierLin.StampBo = (cab.TransSerial+'*'+ cab.TransDocument+'*'+cast(YEAR(cab.CreateDate)as varchar(4))+'*'+CAST(cab.TransDocNumber as varchar(12)))) and u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N'
 where cab.TransStatus=0
 and cab.TransactionConverted=0
 and d.LanguageID='PTG'
@@ -332,20 +335,20 @@ LEFT(n.Description,100) as 'Description',
 (lin.DestinationQuantity) as 'QuantitySatisfied',
 ((lin.Quantity) - (lin.DestinationQuantity)) -
 		(
-		select isnull(sum(u_KApps_DossierLin.Qty2),0) 
-		from u_KApps_DossierLin (NOLOCK) 
-		where u_KApps_DossierLin.Status <> 'X' 
-		and u_KApps_DossierLin.Integrada = 'N' 
-		and ((cast(lin.TransSerial AS VARCHAR(10)) + '*' + cast(lin.TransDocument AS VARCHAR(50)) + '*' + cast(year(lin.CreateDate) AS VARCHAR(20)) + '*' + CAST(lin.TransDocNumber as varchar(10))) = u_KApps_DossierLin.Stampbo)
-		and ((cast(lin.TransDocNumber as varchar(10))+'*' + cast (lin.LineItemID as varchar(15))+'_'+cast (lin.LineItemSubID as varchar(15))) = u_KApps_DossierLin.Stampbi)
+		select isnull(sum(u_Kapps_DossierLin.Qty2),0) 
+		from u_Kapps_DossierLin (NOLOCK) 
+		where u_Kapps_DossierLin.Status = 'A' 
+		and u_Kapps_DossierLin.Integrada = 'N' 
+		and ((cast(lin.TransSerial AS VARCHAR(10)) + '*' + cast(lin.TransDocument AS VARCHAR(50)) + '*' + cast(year(lin.CreateDate) AS VARCHAR(20)) + '*' + CAST(lin.TransDocNumber as varchar(10))) = u_Kapps_DossierLin.Stampbo)
+		and ((cast(lin.TransDocNumber as varchar(10))+'*' + cast (lin.LineItemID as varchar(15))+'_'+cast (lin.LineItemSubID as varchar(15))) = u_Kapps_DossierLin.Stampbi)
 		) as 'QuantityPending',
 
-		(select isnull(sum(u_KApps_DossierLin.Qty2),0)
-		from u_KApps_DossierLin (NOLOCK) 
-		where u_KApps_DossierLin.Status <> 'X' 
-		and u_KApps_DossierLin.Integrada = 'N' 
-		and ((cast(lin.TransSerial AS VARCHAR(10)) + '*' + cast(lin.TransDocument AS VARCHAR(50)) + '*' + cast(year(lin.CreateDate) AS VARCHAR(20)) + '*' + CAST(lin.TransDocNumber as varchar(10))) = u_KApps_DossierLin.Stampbo)
-		and ((cast(lin.TransDocNumber as varchar(10))+'*' + cast (lin.LineItemID as varchar(15))+'_'+cast (lin.LineItemSubID as varchar(15))) = u_KApps_DossierLin.Stampbi)
+		(select isnull(sum(u_Kapps_DossierLin.Qty2),0)
+		from u_Kapps_DossierLin (NOLOCK) 
+		where u_Kapps_DossierLin.Status = 'A' 
+		and u_Kapps_DossierLin.Integrada = 'N' 
+		and ((cast(lin.TransSerial AS VARCHAR(10)) + '*' + cast(lin.TransDocument AS VARCHAR(50)) + '*' + cast(year(lin.CreateDate) AS VARCHAR(20)) + '*' + CAST(lin.TransDocNumber as varchar(10))) = u_Kapps_DossierLin.Stampbo)
+		and ((cast(lin.TransDocNumber as varchar(10))+'*' + cast (lin.LineItemID as varchar(15))+'_'+cast (lin.LineItemSubID as varchar(15))) = u_Kapps_DossierLin.Stampbi)
 		) as 'QuantityPicked',
 art.UnitOfSaleID as 'BaseUnit',
 lin.UnitOfSaleID as 'BusyUnit',
@@ -367,8 +370,11 @@ YEAR(lin.CreateDate) as EXR,
 lin.TransSerial as SEC,
 lin.TransDocument as TPD,
 lin.TransDocNumber as NDC
+, '' as 'Filter1','' as 'Filter2','' as 'Filter3','' as 'Filter4','' as 'Filter5'
 , '' AS Location
 , ISNULL((SELECT PropertyValue1 FROM TransactionPropDetails det WITH(NOLOCK) WHERE det.TransSerial=lin.TransSerial and det.TransDocument= lin.TransDocument and det.TransDocNumber=lin.TransDocNumber and det.LineItemID=lin.LineItemID and det.LineItemSubID=lin.LineItemSubID),'') AS Lot
+, '' as PalletType
+, 0 as PalletMaxUnits
 from saletransactiondetails (nolock) lin join Item (nolock) art on lin.ItemID=art.ItemID
 join ItemNames (nolock) n on art.ItemID=n.ItemID
 --join SaleTransaction (nolock) cab on lin.TransDocument=cab.TransDocument and lin.TransSerial=cab.TransSerial and lin.TransDocNumber=cab.TransDocNumber
@@ -427,19 +433,19 @@ LEFT(n.Description,100) as 'Description',
 (lin.DestinationQuantity) as 'QuantitySatisfied',
 ((lin.Quantity) - (lin.DestinationQuantity)) -
 		(
-		select isnull(sum(u_KApps_DossierLin.Qty2),0) 
-		from u_KApps_DossierLin (NOLOCK) 
-		where u_KApps_DossierLin.Status <> 'X' 
-		and u_KApps_DossierLin.Integrada = 'N' 
-		and ((cast(lin.TransSerial AS VARCHAR(10)) + '*' + cast(lin.TransDocument AS VARCHAR(50)) + '*' + cast(year(lin.CreateDate) AS VARCHAR(20)) + '*' + CAST(lin.TransDocNumber as varchar(10))) = u_KApps_DossierLin.Stampbo)
-		and ((cast(lin.TransDocNumber as varchar(10))+'*' + cast (lin.LineItemID as varchar(15))+'_'+cast (lin.LineItemSubID as varchar(15))) = u_KApps_DossierLin.Stampbi)
+		select isnull(sum(u_Kapps_DossierLin.Qty2),0) 
+		from u_Kapps_DossierLin (NOLOCK) 
+		where u_Kapps_DossierLin.Status = 'A' 
+		and u_Kapps_DossierLin.Integrada = 'N' 
+		and ((cast(lin.TransSerial AS VARCHAR(10)) + '*' + cast(lin.TransDocument AS VARCHAR(50)) + '*' + cast(year(lin.CreateDate) AS VARCHAR(20)) + '*' + CAST(lin.TransDocNumber as varchar(10))) = u_Kapps_DossierLin.Stampbo)
+		and ((cast(lin.TransDocNumber as varchar(10))+'*' + cast (lin.LineItemID as varchar(15))+'_'+cast (lin.LineItemSubID as varchar(15))) = u_Kapps_DossierLin.Stampbi)
 		) as 'QuantityPending',
-		(select isnull(sum(u_KApps_DossierLin.Qty2),0)
-		from u_KApps_DossierLin (NOLOCK) 
-		where u_KApps_DossierLin.Status <> 'X' 
-		and u_KApps_DossierLin.Integrada = 'N' 
-		and ((cast(lin.TransSerial AS VARCHAR(10)) + '*' + cast(lin.TransDocument AS VARCHAR(50)) + '*' + cast(year(lin.CreateDate) AS VARCHAR(20)) + '*' + CAST(lin.TransDocNumber as varchar(10))) = u_KApps_DossierLin.Stampbo)
-		and ((cast(lin.TransDocNumber as varchar(10))+'*' + cast (lin.LineItemID as varchar(15))+'_'+cast (lin.LineItemSubID as varchar(15))) = u_KApps_DossierLin.Stampbi)
+		(select isnull(sum(u_Kapps_DossierLin.Qty2),0)
+		from u_Kapps_DossierLin (NOLOCK) 
+		where u_Kapps_DossierLin.Status = 'A' 
+		and u_Kapps_DossierLin.Integrada = 'N' 
+		and ((cast(lin.TransSerial AS VARCHAR(10)) + '*' + cast(lin.TransDocument AS VARCHAR(50)) + '*' + cast(year(lin.CreateDate) AS VARCHAR(20)) + '*' + CAST(lin.TransDocNumber as varchar(10))) = u_Kapps_DossierLin.Stampbo)
+		and ((cast(lin.TransDocNumber as varchar(10))+'*' + cast (lin.LineItemID as varchar(15))+'_'+cast (lin.LineItemSubID as varchar(15))) = u_Kapps_DossierLin.Stampbi)
 		) as 'QuantityPicked',
 art.UnitOfSaleID as 'BaseUnit',
 lin.UnitOfSaleID as 'BusyUnit',
@@ -504,6 +510,7 @@ select
 , '1' AS LocActiva
 , cast(1 as bit) AS Checkdigit
 , cast(0 as int) AS LocationType						-- int 1(Localizações do tipo Receção), 2(Localizações do tipo expedição)
+WHERE 1 = 0
 GO
 
 
@@ -599,6 +606,7 @@ Select distinct
 '' as 'TPD',											-- TipoDocumento
 '' as 'NDC',											-- Numero Documento
 '' as 'Filter1','' as 'Filter2','' as 'Filter3','' as 'Filter4','' as 'Filter5'
+WHERE 1 = 0
 GO
 
 
@@ -634,6 +642,7 @@ CREATE view [dbo].[v_Kapps_RestrictedUsersZones] as
 select 
 '' AS UserName,
 '' AS ZoneLocation
+WHERE 1 = 0
 GO
 
 
@@ -642,27 +651,8 @@ IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'[dbo].[v_Kapps
 DROP view [dbo].[v_Kapps_StockBreakReasons]
 GO
 CREATE view [dbo].[v_Kapps_StockBreakReasons] as 
-select 'Furto' AS Reason
-UNION
-select 'Vandalismo' AS Reason
-UNION
-select 'Incêndio' AS Reason
-UNION
-select 'Danos por águas' AS Reason
-UNION
-select 'Tempestades' AS Reason
-UNION
-select 'Falhas estruturais' AS Reason
-UNION
-select 'Fora de Validade' AS Reason
-UNION
-select 'Consumo interno' AS Reason
-UNION
-select 'Erros na expedição' AS Reason
-UNION
-select 'Devoluções de clientes'  AS Reason
-UNION
-select 'Mau acondicionamento'  AS Reason
+select ReasonID, ReasonDescription, ReasonType
+FROM u_Kapps_Reasons
 GO
 
 
@@ -678,6 +668,7 @@ select
 '' AS Location,
 '' AS Family,
 '' AS Article
+WHERE 1 = 0
 GO
 
 
@@ -695,9 +686,10 @@ select '' as NAME, '' as Code
 ,'' As Area
 ,'' As Country
 ,'' As Phone
-,'' as Latitude
-,'' as Longitude
+,CAST(0 as numeric(10,6)) as Latitude
+,CAST(0 as numeric(10,6)) as Longitude
 ,'' as OBS
+WHERE 1 = 0
 GO
 
 
@@ -710,7 +702,7 @@ select h.SSCC as HeaderSSCC
 , d.SSCC as DetailSSCC
 , h.PackId
 , d.Ref AS Article
-, d.Quantity
+, d.Quantity2 as Quantity
 , d.Quantity2UM as Unit
 , d.Lot
 , d.ExpirationDate
@@ -730,6 +722,7 @@ select h.SSCC as HeaderSSCC
 , h.CurrentWarehouse
 , h.CurrentLocation
 , h.PackStatus
+, h.PackType
 FROM u_Kapps_PackingDetails d
 LEFT JOIN u_Kapps_PackingHeader h on h.PackId=d.PackID
 LEFT JOIN u_Kapps_DossierLin lin on lin.StampLin=d.StampLin
@@ -773,7 +766,7 @@ cab.TransDocNumber as NDC,
 ,'' as Barcode
 from SaleTransaction (nolock) cab join Customer (nolock) c on cab.PartyID=c.PartyID 
 join DocumentsName (nolock) d on cab.TransDocument=d.TransDocumentID
-left join u_KApps_DossierLin (NOLOCK) on (u_KApps_DossierLin.StampBo = (cab.TransSerial+'*'+ cab.TransDocument+'*'+cast(YEAR(cab.CreateDate)as varchar(4))+'*'+CAST(cab.TransDocNumber as varchar(12)))) and u_KApps_DossierLin.Status <> 'X' and u_KApps_DossierLin.Integrada = 'N'
+left join u_Kapps_DossierLin (NOLOCK) on (u_Kapps_DossierLin.StampBo = (cab.TransSerial+'*'+ cab.TransDocument+'*'+cast(YEAR(cab.CreateDate)as varchar(4))+'*'+CAST(cab.TransDocNumber as varchar(12)))) and u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N'
 where cab.TransStatus=0
 and cab.TransactionConverted=0
 and d.LanguageID='PTG'
@@ -793,19 +786,19 @@ LEFT(n.Description,100) as 'Description',
 (lin.DestinationQuantity) as 'QuantitySatisfied',
 ((lin.Quantity) - (lin.DestinationQuantity)) -
 	   (
-	   select isnull(sum(u_KApps_DossierLin.Qty2),0) 
-       from u_KApps_DossierLin (NOLOCK) 
-       where u_KApps_DossierLin.Status <> 'X' 
-       and u_KApps_DossierLin.Integrada = 'N'      
-       and ((cast(lin.TransSerial AS VARCHAR(10)) + '*' + cast(lin.TransDocument AS VARCHAR(50)) + '*' + cast(year(lin.CreateDate) AS VARCHAR(20)) + '*' + CAST(lin.TransDocNumber as varchar(10))) = u_KApps_DossierLin.Stampbo)
-       and ((cast(lin.TransDocNumber as varchar(10))+'*' + cast (lin.LineItemID as varchar(15))+'_'+cast (lin.LineItemSubID as varchar(15))) = u_KApps_DossierLin.Stampbi)
+	   select isnull(sum(u_Kapps_DossierLin.Qty2),0) 
+       from u_Kapps_DossierLin (NOLOCK) 
+       where u_Kapps_DossierLin.Status = 'A' 
+       and u_Kapps_DossierLin.Integrada = 'N'      
+       and ((cast(lin.TransSerial AS VARCHAR(10)) + '*' + cast(lin.TransDocument AS VARCHAR(50)) + '*' + cast(year(lin.CreateDate) AS VARCHAR(20)) + '*' + CAST(lin.TransDocNumber as varchar(10))) = u_Kapps_DossierLin.Stampbo)
+       and ((cast(lin.TransDocNumber as varchar(10))+'*' + cast (lin.LineItemID as varchar(15))+'_'+cast (lin.LineItemSubID as varchar(15))) = u_Kapps_DossierLin.Stampbi)
        ) as 'QuantityPending',
-	   (select isnull(sum(u_KApps_DossierLin.Qty2),0)
-       from u_KApps_DossierLin (NOLOCK) 
-       where u_KApps_DossierLin.Status <> 'X' 
-       and u_KApps_DossierLin.Integrada = 'N' 
-       and ((cast(lin.TransSerial AS VARCHAR(10)) + '*' + cast(lin.TransDocument AS VARCHAR(50)) + '*' + cast(year(lin.CreateDate) AS VARCHAR(20)) + '*' + CAST(lin.TransDocNumber as varchar(10))) = u_KApps_DossierLin.StampBo)
-       and ((cast(lin.TransDocNumber as varchar(10))+'*' + cast (lin.LineItemID as varchar(15))+'_'+cast (lin.LineItemSubID as varchar(15))) = u_KApps_DossierLin.Stampbi)
+	   (select isnull(sum(u_Kapps_DossierLin.Qty2),0)
+       from u_Kapps_DossierLin (NOLOCK) 
+       where u_Kapps_DossierLin.Status = 'A' 
+       and u_Kapps_DossierLin.Integrada = 'N' 
+       and ((cast(lin.TransSerial AS VARCHAR(10)) + '*' + cast(lin.TransDocument AS VARCHAR(50)) + '*' + cast(year(lin.CreateDate) AS VARCHAR(20)) + '*' + CAST(lin.TransDocNumber as varchar(10))) = u_Kapps_DossierLin.StampBo)
+       and ((cast(lin.TransDocNumber as varchar(10))+'*' + cast (lin.LineItemID as varchar(15))+'_'+cast (lin.LineItemSubID as varchar(15))) = u_Kapps_DossierLin.Stampbi)
        ) as 'QuantityPicked',
 art.UnitOfSaleID as 'BaseUnit',
 lin.UnitOfSaleID as 'BusyUnit',
@@ -827,6 +820,7 @@ YEAR(lin.CreateDate) as EXR,
 lin.TransSerial as SEC,
 lin.TransDocument as TPD,
 lin.TransDocNumber as NDC
+, '' as 'Filter1','' as 'Filter2','' as 'Filter3','' as 'Filter4','' as 'Filter5'
 , '' AS Location
 , ISNULL((SELECT PropertyValue1 FROM TransactionPropDetails det WITH(NOLOCK) WHERE det.TransSerial=lin.TransSerial and det.TransDocument= lin.TransDocument and det.TransDocNumber=lin.TransDocNumber and det.LineItemID=lin.LineItemID and det.LineItemSubID=lin.LineItemSubID),'') AS Lot
 , '' as PalletType
@@ -835,4 +829,15 @@ from saletransactiondetails lin WITH(nolock) join Item art WITH(nolock) on lin.I
 join ItemNames n with(nolock) on art.ItemID=n.ItemID
 --join SaleTransaction (nolock) cab on lin.TransDocument=cab.TransDocument and lin.TransSerial=cab.TransSerial and lin.TransDocNumber=cab.TransDocNumber
 where n.LanguageID='PTG'
+GO
+
+
+
+IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'[dbo].[v_Kapps_Stock_Status]'))
+DROP view [dbo].[v_Kapps_Stock_Status]
+GO
+CREATE view [dbo].[v_Kapps_Stock_Status] as 
+select '' as Code
+, '' AS Description
+WHERE 1=0
 GO

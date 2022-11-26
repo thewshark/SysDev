@@ -180,3 +180,19 @@ GO
 IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SP_u_Kapps_SSCC_NextNumberUSR') AND type in (N'P', N'PC'))
 DROP PROCEDURE SP_u_Kapps_SSCC_NextNumberUSR
 GO
+
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SP_u_Kapps_UpdateStatus') AND type in (N'P', N'PC'))
+DROP PROCEDURE SP_u_Kapps_UpdateStatus
+GO
+
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SP_u_Kapps_CheckUserPermission') AND type in (N'P', N'PC'))
+DROP PROCEDURE SP_u_Kapps_CheckUserPermission
+GO
+
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SP_u_Kapps_UpdateLine') AND type in (N'P', N'PC'))
+DROP PROCEDURE SP_u_Kapps_UpdateLine
+GO
+
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SP_u_Kapps_InsertLot') AND type in (N'P', N'PC'))
+DROP PROCEDURE SP_u_Kapps_InsertLot
+GO

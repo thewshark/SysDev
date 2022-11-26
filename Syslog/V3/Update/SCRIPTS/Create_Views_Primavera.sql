@@ -80,18 +80,10 @@ IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'[dbo].[v_Kapps
 DROP view [dbo].[v_Kapps_Barcodes]
 GO
 CREATE view [dbo].[v_Kapps_Barcodes] as 
-select cb.Artigo as Code, cb.CodBarras as Barcode, cb.Unidade as Unit,
-ISNULL((select ISNULL(uc.FactorConversao, 1) from UnidadesConversao uc (NOLOCK) WHERE uc.UnidadeOrigem = cb.Unidade and uc.UnidadeDestino = art.UnidadeBase),1) as Quantity
+select cb.Artigo as Code, cb.CodBarras as Barcode, cb.Unidade as Unit, CAST(1 as int) as Quantity
 from ArtigoCodBarras cb WITH(NOLOCK)
 JOIN Artigo art (NOLOCK) on art.Artigo = cb.Artigo
 where art.ArtigoAnulado = 0
-UNION ALL
-select art.Artigo as Code
-, art.CodBarras as Barcode
-, art.UnidadeBase as Unit
-, 1 as Quantity
-from Artigo art WITH(NOLOCK) 
-where art.ArtigoAnulado = 0 and art.TratamentoDim<>1
 GO
 
 
@@ -441,6 +433,20 @@ WHERE UC.UnidadeOrigem NOT IN
 	WHERE ARTUND.Artigo = art.Artigo  and ARTUND.FactorConversao > 0 and ARTUND.UnidadeDestino = art.UnidadeBase
 	)
 AND uc.FactorConversao > 0 and (UC.UnidadeOrigem = art.UnidadeVenda or UC.UnidadeOrigem = art.UnidadeCompra) and art.TratamentoDim<>1
+UNION 
+SELECT cb.Artigo as Code, cb.Unidade as Unit,
+ISNULL((select COALESCE(uc.FactorConversao, 1) from UnidadesConversao uc (NOLOCK) WHERE uc.UnidadeOrigem = cb.Unidade and uc.UnidadeDestino = art.UnidadeBase),1) as Quantity
+FROM ArtigoCodBarras cb WITH(NOLOCK)
+JOIN Artigo art (NOLOCK) on art.Artigo = cb.Artigo
+WHERE art.ArtigoAnulado = 0
+and cb.Unidade<>art.UnidadeBase
+and COALESCE(cb.Unidade,'')<>''
+and cb.Unidade not in
+	(
+	SELECT ARTUND.UnidadeOrigem 'Unit' 
+	FROM ArtigoUnidades ARTUND (NOLOCK) 
+	WHERE ARTUND.Artigo = art.Artigo  and ARTUND.FactorConversao > 0 and ARTUND.UnidadeDestino = art.UnidadeBase
+	)
 GO
 
 

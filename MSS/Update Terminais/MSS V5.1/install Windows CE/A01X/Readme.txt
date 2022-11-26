@@ -1,0 +1,1 @@
+Copy the 3 DLLs to folders "...\MSS_Client" and "...\MSS_Client\MSS_Application"
