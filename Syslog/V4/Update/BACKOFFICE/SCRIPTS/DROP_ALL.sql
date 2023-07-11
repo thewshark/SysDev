@@ -297,6 +297,26 @@ IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'u_Kapps_Reas
 DROP TABLE u_Kapps_Reasons
 GO
 
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'u_Kapps_InquiryAnswersStampLin') AND type in (N'U'))
+DROP TABLE u_Kapps_InquiryAnswersStampLin
+GO
+
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'u_Kapps_LogSP') AND type in (N'U'))
+DROP TABLE u_Kapps_LogSP
+GO
+
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'u_Kapps_NumeratorsSet') AND type in (N'U'))
+DROP TABLE u_Kapps_NumeratorsSet
+GO
+
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'u_Kapps_tBOM_Header') AND type in (N'U'))
+DROP TABLE u_Kapps_tBOM_Header
+GO
+
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'u_Kapps_tBOM_Items') AND type in (N'U'))
+DROP TABLE u_Kapps_tBOM_Items
+GO
+
 --
 -- Drop Views
 --
@@ -422,6 +442,18 @@ GO
 
 IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'v_Kapps_Stock_Status'))
 DROP view v_Kapps_Stock_Status
+GO
+
+IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'v_Kapps_ProductsStruture'))
+DROP view v_Kapps_ProductsStruture
+GO
+
+IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'v_Kapps_BOM_Header'))
+DROP view v_Kapps_BOM_Header
+GO
+
+IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'v_Kapps_BOM_Items'))
+DROP view v_Kapps_BOM_Items
 GO
 
 --
@@ -621,4 +653,40 @@ GO
 
 IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SP_u_Kapps_InsertLot') AND type in (N'P', N'PC'))
 DROP PROCEDURE SP_u_Kapps_InsertLot
+GO
+
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SP_u_Kapps_Dossiers_ParametersUCabULin') AND type in (N'P', N'PC'))
+DROP PROCEDURE SP_u_Kapps_Dossiers_ParametersUCabULin
+GO
+
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SP_u_Kapps_UpdatePalletLocation') AND type in (N'P', N'PC'))
+DROP PROCEDURE SP_u_Kapps_UpdatePalletLocation
+GO
+
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SP_u_Kapps_tBOM_New') AND type in (N'P', N'PC'))
+DROP PROCEDURE SP_u_Kapps_tBOM_New
+GO
+
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SP_u_Kapps_Products_AddToDossierLin') AND type in (N'P', N'PC'))
+DROP PROCEDURE SP_u_Kapps_Products_AddToDossierLin
+GO
+
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SP_u_Kapps_BOM_CheckQuantity') AND type in (N'P', N'PC'))
+DROP PROCEDURE SP_u_Kapps_BOM_CheckQuantity
+GO
+
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SP_u_Kapps_SerialNumber_Insert') AND type in (N'P', N'PC'))
+DROP PROCEDURE SP_u_Kapps_SerialNumber_Insert
+GO
+
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SP_u_Kapps_Location_InsertLogModify') AND type in (N'P', N'PC'))
+DROP PROCEDURE SP_u_Kapps_Location_InsertLogModify
+GO
+
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SP_u_Kapps_GetRestrictions') AND type in (N'P', N'PC'))
+DROP PROCEDURE SP_u_Kapps_GetRestrictions
+GO
+
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SP_u_Kapps_CalculateUserFieldsUSR') AND type in (N'P', N'PC'))
+DROP PROCEDURE SP_u_Kapps_CalculateUserFieldsUSR
 GO

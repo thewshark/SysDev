@@ -16,7 +16,7 @@ select cli.Nome as NAME, cli.CODIGO as Code, '' AS 'NameByLabel', '' AS 'AdressB
 , BLNOTAS as OBS
 , 0 AS InternalCustomer						-- 0 Externo, 1 Interno
 , cli.Nome As ShortName
-from Clientes cli (NOLOCK)
+from Clientes cli WITH(NOLOCK)
 where cli.INACTIVO = 0
 GO
 
@@ -37,7 +37,7 @@ select forn.Nome as NAME, forn.CODIGO as Code
 , CAST(0 as numeric(10,6)) as Latitude
 , CAST(0 as numeric(10,6)) as Longitude
 ,  BLNOTAS as OBS
-from FORNEC forn (NOLOCK)
+from FORNEC forn WITH(NOLOCK)
 where forn.INACTIVO = 0
 GO
 
@@ -59,7 +59,7 @@ CASE WHEN DC.ENTIDADE = '2' THEN 'CL' WHEN DC.ENTIDADE = '1' THEN 'FL' ELSE '' E
 ,1 as 'ValidaStock'
 ,0 as 'StockBreak'
 ,'' as DefaultEntity
-from TPDOC DC (NOLOCK)
+from TPDOC DC WITH(NOLOCK)
 GO
 
 
@@ -70,8 +70,8 @@ GO
 CREATE view [dbo].[v_Kapps_Warehouses] as 
 select arm.NOME as Description, arm.CODIGO as Code
 , CAST(0 as bit) UseLocations
-, arm.Codigo AS DefaultLocation
-from ARMAZENS arm (NOLOCK)
+, '' AS DefaultLocation
+from ARMAZENS arm WITH(NOLOCK)
 GO
 
 
@@ -81,8 +81,7 @@ DROP view [dbo].[v_Kapps_Articles]
 GO
 CREATE view [dbo].[v_Kapps_Articles] as 
 select art.NOME as 'Description', art.CODIGO as 'Code', '' as 'Barcode',
-art.E_LOTE as 'UseLots', art.E_NUMERO_SERIE as 'UseSerialNumber',
--- CASE WHEN art_CONTROLO_LOTES <> 0 THEN 1 ELSE 0 END as UseLots
+CASE WHEN art.CONTROLO_LOTES <> 0 THEN 1 ELSE art.E_LOTE END as 'UseLots', art.E_NUMERO_SERIE as 'UseSerialNumber',
 art.UNBASE as 'BaseUnit', art.Familia as 'Family', CASE WHEN art.CTRSTOCK <> 0 THEN 1 ELSE 0 END AS 'MovStock',
 '' as 'Filter1','' as 'Filter2','' as 'Filter3','' as 'Filter4','' as 'Filter5', '' AS 'GTIN'
 ,CAST('' as varchar(10)) AS DefaultWarehouse
@@ -92,11 +91,11 @@ art.UNBASE as 'BaseUnit', art.Familia as 'Family', CASE WHEN art.CTRSTOCK <> 0 T
 , art.UNCMP AS BuyUnit
 , 0 as LoteControlOut									-- 0-Manual 1-FIFO, 2-FEFO, 3-LIFO
 , CASE WHEN (SELECT VALIDADE FROM CATEGORIAS_LOTES WHERE CATEGORIA = art.CATEGORIA_LOTES)>0 THEN 1 ELSE 0 END as UseExpirationDate
-, CAST(0 as bit) as UseWeight										-- (1-Sim) (0-Não)
+, CAST(0 as bit) as UseWeight							-- (1-Sim) (0-Não)
 , 0 AS StoreInNrDays									-- Nº de dias minimo de validade na receção (excepto se existir regra a contrariar em [Validades mínimas])
 , 0 AS StoreOutNrDays									-- Nº de dias minimo de validade na expedição (excepto se existir regra a contrariar em [Validades mínimas])
 , CAST(0 as int) AS BoxMaxQuantity
-from Artigos art (NOLOCK)
+from Artigos art WITH(NOLOCK)
 where art.INACTIVO = 0
 GO
 
@@ -107,8 +106,8 @@ DROP view [dbo].[v_Kapps_Barcodes]
 GO
 CREATE view [dbo].[v_Kapps_Barcodes] as 
 select cb.Artigo as Code, cb.CODIGO as Barcode, cb.UNID as Unit, cb.QTD as Quantity
-from CBARRAS cb (NOLOCK)
-left join Artigos art (NOLOCK) on art.CODIGO = cb.Artigo
+from CBARRAS cb WITH(NOLOCK)
+left join Artigos art WITH(NOLOCK) on art.CODIGO = cb.Artigo
 where art.INACTIVO = 0
 GO
 
@@ -118,16 +117,17 @@ IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'[dbo].[v_Kapps
 DROP view [dbo].[v_Kapps_Stock]
 GO
 CREATE view [dbo].[v_Kapps_Stock] as 
-select sa.Artigo as Article, sa.Armazem as Warehouse, (lot.QTDINICI - lot.QTDSID) as Stock
- -- , sa.EXISTENC as Stock
-, sa.Local AS Location
-, lot.CODLOTE as Lote
+SELECT sa.Artigo AS Article
+, CAST(sa.armazem AS VARCHAR(5)) AS Warehouse
+, SUM(CASE WHEN ISNULL(lot.CODLOTE, '') = '' THEN sa.EXISTENC ELSE (lot.QTDINICI - lot.QTDSID) END) AS Stock
+, sa.LOCAL AS Location
+, ISNULL(lot.CODLOTE, '') AS Lote, SUM(CASE WHEN ISNULL(lot.CODLOTE, '') = '' THEN sa.EXISTENC ELSE (lot.QTDINICI - lot.QTDSID) END) AS AvailableStock
 --,sa.EXISTENC-sa.STRESOBR AS AvailableStock				--A Confirmar
-, (lot.QTDINICI - lot.QTDSID) AS AvailableStock				
-from ARTARM sa (NOLOCK)
-join ARTIGOS art (NOLOCK) on art.CODIGO = sa.Artigo
-join ARTLOT lot on lot.ARTIGO=art.CODIGO
-where art.INACTIVO = 0
+FROM ARTARM sa(NOLOCK)
+LEFT JOIN ARTIGOS art(NOLOCK) ON art.CODIGO = sa.Artigo
+LEFT JOIN ARTLOT lot ON lot.ARTIGO = sa.ARTIGO AND lot.ARMAZEM = sa.ARMAZEM
+WHERE art.INACTIVO = 0
+GROUP BY sa.Artigo, CAST(sa.armazem AS VARCHAR(5)), sa.LOCAL, ISNULL(lot.CODLOTE, '')
 GO
 
 
@@ -141,8 +141,8 @@ select lot.CODLOTE as Lot
 , lot.DTAVALPR AS ExpirationDate
 , lot.DTAENTRA AS ProductionDate
 , CAST(1 as bit) as Actif
-from ARTLOT lot (NOLOCK) 
-join ARTIGOS art (NOLOCK) on art.CODIGO = lot.ARTIGO
+from ARTLOT lot WITH(NOLOCK) 
+join ARTIGOS art WITH(NOLOCK) on art.CODIGO = lot.ARTIGO
 where art.INACTIVO = 0
 GO
 
@@ -153,8 +153,8 @@ DROP view [dbo].[v_Kapps_SerialNumbers]
 GO
 CREATE view [dbo].[v_Kapps_SerialNumbers] as 
 select distinct (nsr.NUMSER) as SerialNumber, nsr.ARTIGO as Article, nsr.ARMAZEM as Warehouse
-from NSERMOVS nsr (NOLOCK)
-join Artigos art (NOLOCK) on art.CODIGO = nsr.Artigo
+from NSERMOVS nsr WITH(NOLOCK)
+join Artigos art WITH(NOLOCK) on art.CODIGO = nsr.Artigo
 where art.INACTIVO = 0
 GO
 
@@ -164,7 +164,7 @@ IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'[dbo].[v_Kapps
 DROP view [dbo].[v_Kapps_Families]
 GO
 CREATE view [dbo].[v_Kapps_Families] as 
-select DESCR as 'Description' ,COD as 'Code' from Familia (NOLOCK) 
+select DESCR as 'Description' ,COD as 'Code' from Familia WITH(NOLOCK) 
 GO
 
 
@@ -200,10 +200,10 @@ cab.NNUMDOC as 'NDC',
 ,cab.TERCEIRO as DeliveryCustomer
 ,cab.ONDEENTR as DeliveryCode
 ,'' as Barcode
-from DOCGCCAB cab (NOLOCK)
-join Clientes cli (NOLOCK) ON cli.CODIGO = cab.TERCEIRO
-join TPDOC tdoc (NOLOCK) on tdoc.CODIGO = cab.TPDOC
-left join u_Kapps_DossierLin (NOLOCK) on (u_Kapps_DossierLin.StampBo = (cast(cab.SERIE AS VARCHAR(20)) + '*' + cast(cab.TPDOC AS VARCHAR(50)) + '*' + cast(cab.ANO AS VARCHAR(20)) + '*' + CAST(cab.NNUMDOC as varchar(10)))) 
+from DOCGCCAB cab WITH(NOLOCK)
+join Clientes cli WITH(NOLOCK) ON cli.CODIGO = cab.TERCEIRO
+join TPDOC tdoc WITH(NOLOCK) on tdoc.CODIGO = cab.TPDOC
+left join u_Kapps_DossierLin WITH(NOLOCK) on (u_Kapps_DossierLin.StampBo = (cast(cab.SERIE AS VARCHAR(20)) + '*' + cast(cab.TPDOC AS VARCHAR(50)) + '*' + cast(cab.ANO AS VARCHAR(20)) + '*' + CAST(cab.NNUMDOC as varchar(10)))) 
 and u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N' 
 where cab.aprovado = 1 and cab.TPFSTC = 0
 GO
@@ -222,15 +222,15 @@ Lin.DESCR as 'Description',
 ((Lin.QTDORIG / Lin.FACTOR) - (Lin.QUANT/ Lin.FACTOR)) AS 'QuantitySatisfied', 
 ((Lin.QTDORIG / Lin.FACTOR) - ((Lin.QTDORIG / Lin.FACTOR) - (Lin.QUANT/ Lin.FACTOR))) -  
        (
-       select isnull(sum(u_Kapps_DossierLin.Qty2),0) 
-       from u_Kapps_DossierLin (NOLOCK) 
+       select COALESCE(sum(u_Kapps_DossierLin.Qty2),0) 
+       from u_Kapps_DossierLin WITH(NOLOCK) 
        where u_Kapps_DossierLin.Status = 'A' 
        and u_Kapps_DossierLin.Integrada = 'N' 
        and ((cast(cab.SERIE AS VARCHAR(10)) + '*' + cast(cab.TPDOC AS VARCHAR(50)) + '*' + cast(cab.ANO AS VARCHAR(20)) + '*' + CAST(cab.NNUMDOC as varchar(10)))=u_Kapps_DossierLin.stampbo) 
        and ((cast(lin.NNUMDOC AS VARCHAR(20)) + '*' + CAST(lin.numlinha as varchar(15))) = u_Kapps_DossierLin.Stampbi))                                         as 'QuantityPending',
               (
-              select isnull(sum(u_Kapps_DossierLin.Qty2),0) 
-              from u_Kapps_DossierLin (NOLOCK) 
+              select COALESCE(sum(u_Kapps_DossierLin.Qty2),0) 
+              from u_Kapps_DossierLin WITH(NOLOCK) 
               where u_Kapps_DossierLin.Status = 'A' 
               and u_Kapps_DossierLin.Integrada = 'N' 
               and ((cast(cab.SERIE AS VARCHAR(10)) + '*' + cast(cab.TPDOC AS VARCHAR(50)) + '*' + cast(cab.ANO AS VARCHAR(20)) + '*' + CAST(cab.NNUMDOC as varchar(10)))=u_Kapps_DossierLin.stampbo) 
@@ -260,9 +260,9 @@ cab.NNUMDOC as 'NDC',
 ,'' as Lot												--A Confirmar
 , '' as PalletType
 , 0 as PalletMaxUnits
-FROM DOCGCLIN lin (NOLOCK) 
-JOIN DOCGCCAB cab (NOLOCK) ON cab.SERIE = lin.SERIE and cab.TPDOC = lin.TPDOCUM  and cab.ANO = lin.ANO and cab.NNUMDOC = lin.NNUMDOC
-LEFT JOIN Artigos Art (NOLOCK) ON Art.CODIGO = lin.Artigo
+FROM DOCGCLIN lin WITH(NOLOCK) 
+JOIN DOCGCCAB cab WITH(NOLOCK) ON cab.SERIE = lin.SERIE and cab.TPDOC = lin.TPDOCUM  and cab.ANO = lin.ANO and cab.NNUMDOC = lin.NNUMDOC
+LEFT JOIN Artigos Art WITH(NOLOCK) ON Art.CODIGO = lin.Artigo
 where cab.aprovado = 1 and cab.TPFSTC = 0
 GO
 
@@ -299,10 +299,10 @@ cab.NNUMDOC as 'NDC',
 ,cab.TERCEIRO as DeliveryCustomer
 ,cab.ONDEENTR as DeliveryCode
 ,'' as Barcode
-from DOCGCCAB cab (NOLOCK)
-join Clientes cli (NOLOCK) ON cli.CODIGO = cab.TERCEIRO
-join TPDOC tdoc (NOLOCK) on tdoc.CODIGO = cab.TPDOC
-left join u_Kapps_DossierLin (NOLOCK) on (u_Kapps_DossierLin.StampBo = (cast(cab.SERIE AS VARCHAR(20)) + '*' + cast(cab.TPDOC AS VARCHAR(50)) + '*' + cast(cab.ANO AS VARCHAR(20)) + '*' + CAST(cab.NNUMDOC as varchar(10)))) 
+from DOCGCCAB cab WITH(NOLOCK)
+join Clientes cli WITH(NOLOCK) ON cli.CODIGO = cab.TERCEIRO
+join TPDOC tdoc WITH(NOLOCK) on tdoc.CODIGO = cab.TPDOC
+left join u_Kapps_DossierLin WITH(NOLOCK) on (u_Kapps_DossierLin.StampBo = (cast(cab.SERIE AS VARCHAR(20)) + '*' + cast(cab.TPDOC AS VARCHAR(50)) + '*' + cast(cab.ANO AS VARCHAR(20)) + '*' + CAST(cab.NNUMDOC as varchar(10)))) 
 and u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N' 
 where cab.aprovado = 1 and cab.TPFSTC = 0
 GO
@@ -321,15 +321,15 @@ Lin.DESCR as 'Description',
 ((Lin.QTDORIG / Lin.FACTOR) - (Lin.QUANT/ Lin.FACTOR)) AS 'QuantitySatisfied', 
 ((Lin.QTDORIG / Lin.FACTOR) - ((Lin.QTDORIG / Lin.FACTOR) - (Lin.QUANT/ Lin.FACTOR))) - 
        (
-       select isnull(sum(u_Kapps_DossierLin.Qty2),0) 
-       from u_Kapps_DossierLin (NOLOCK) 
+       select COALESCE(sum(u_Kapps_DossierLin.Qty2),0) 
+       from u_Kapps_DossierLin WITH(NOLOCK) 
        where u_Kapps_DossierLin.Status = 'A' 
        and u_Kapps_DossierLin.Integrada = 'N' 
        and ((cast(cab.SERIE AS VARCHAR(10)) + '*' + cast(cab.TPDOC AS VARCHAR(50)) + '*' + cast(cab.ANO AS VARCHAR(20)) + '*' + CAST(cab.NNUMDOC as varchar(10)))=u_Kapps_DossierLin.stampbo) 
        and ((cast(lin.NNUMDOC AS VARCHAR(20)) + '*' + CAST(lin.numlinha as varchar(15))) = u_Kapps_DossierLin.Stampbi))                                         as 'QuantityPending',
               (
-              select isnull(sum(u_Kapps_DossierLin.Qty2),0) 
-              from u_Kapps_DossierLin (NOLOCK) 
+              select COALESCE(sum(u_Kapps_DossierLin.Qty2),0) 
+              from u_Kapps_DossierLin WITH(NOLOCK) 
               where u_Kapps_DossierLin.Status = 'A' 
               and u_Kapps_DossierLin.Integrada = 'N' 
               and ((cast(cab.SERIE AS VARCHAR(10)) + '*' + cast(cab.TPDOC AS VARCHAR(50)) + '*' + cast(cab.ANO AS VARCHAR(20)) + '*' + CAST(cab.NNUMDOC as varchar(10)))=u_Kapps_DossierLin.stampbo) 
@@ -360,9 +360,9 @@ cab.NNUMDOC as 'NDC',
 ,'' as PalletType
 ,0 as PalletMaxUnits
 
-FROM DOCGCLIN lin (NOLOCK) 
-JOIN DOCGCCAB cab (NOLOCK) ON cab.SERIE = lin.SERIE and cab.TPDOC = lin.TPDOCUM  and cab.ANO = lin.ANO and cab.NNUMDOC = lin.NNUMDOC
-LEFT JOIN Artigos Art (NOLOCK) ON Art.CODIGO = lin.Artigo
+FROM DOCGCLIN lin WITH(NOLOCK) 
+JOIN DOCGCCAB cab WITH(NOLOCK) ON cab.SERIE = lin.SERIE and cab.TPDOC = lin.TPDOCUM  and cab.ANO = lin.ANO and cab.NNUMDOC = lin.NNUMDOC
+LEFT JOIN Artigos Art WITH(NOLOCK) ON Art.CODIGO = lin.Artigo
 where cab.aprovado = 1 and cab.TPFSTC = 0
 GO
 
@@ -398,10 +398,10 @@ cab.NNUMDOC as 'NDC',
 '' as 'Filter1','' as 'Filter2','' as 'Filter3','' as 'Filter4','' as 'Filter5',
 '' as ExternalDoc
 ,'' as Barcode
-from DOCGCCAB cab (NOLOCK)
-join FORNEC forn (NOLOCK) ON forn.CODIGO = cab.TERCEIRO
-join TPDOC tdoc (NOLOCK) on tdoc.CODIGO = cab.TPDOC
-left join u_Kapps_DossierLin (NOLOCK) on (u_Kapps_DossierLin.StampBo = (cast(cab.SERIE AS VARCHAR(20)) + '*' + cast(cab.TPDOC AS VARCHAR(50)) + '*' + cast(cab.ANO AS VARCHAR(20)) + '*' + CAST(cab.NNUMDOC as varchar(10)))) 
+from DOCGCCAB cab WITH(NOLOCK)
+join FORNEC forn WITH(NOLOCK) ON forn.CODIGO = cab.TERCEIRO
+join TPDOC tdoc WITH(NOLOCK) on tdoc.CODIGO = cab.TPDOC
+left join u_Kapps_DossierLin WITH(NOLOCK) on (u_Kapps_DossierLin.StampBo = (cast(cab.SERIE AS VARCHAR(20)) + '*' + cast(cab.TPDOC AS VARCHAR(50)) + '*' + cast(cab.ANO AS VARCHAR(20)) + '*' + CAST(cab.NNUMDOC as varchar(10)))) 
 and u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N' 
 where cab.TPFSTC = 0
 GO
@@ -419,12 +419,12 @@ lin.DESCR AS 'Description',
 (Lin.QTDORIG / Lin.FACTOR) AS 'Quantity', 
 ((Lin.QTDORIG / Lin.FACTOR) - (Lin.QUANT/ Lin.FACTOR)) AS 'QuantitySatisfied', 
 ((Lin.QTDORIG / Lin.FACTOR) - ((Lin.QTDORIG / Lin.FACTOR) - (Lin.QUANT/ Lin.FACTOR))) - 
-(SELECT ISNULL(SUM(Qty2), 0) 
-FROM dbo.u_Kapps_DossierLin WITH (NOLOCK)
+(SELECT COALESCE(SUM(Qty2), 0) 
+FROM dbo.u_Kapps_DossierLin WITH(NOLOCK)
 WHERE (Status = 'A') AND (Integrada = 'N') 
 AND (CAST(cab.SERIE AS VARCHAR(10)) + '*' + CAST(cab.TPDOC AS VARCHAR(50)) + '*' + CAST(cab.ANO AS VARCHAR(20)) + '*' + CAST(cab.NNUMDOC AS varchar(10)) = StampBo) 
 AND (CAST(lin.NNUMDOC AS VARCHAR(20)) + '*' + CAST(lin.NUMLINHA AS varchar(15)) = StampBi)) AS 'QuantityPending',
-(SELECT ISNULL(SUM(Qty2), 0) FROM dbo.u_Kapps_DossierLin WITH (NOLOCK)
+(SELECT COALESCE(SUM(Qty2), 0) FROM dbo.u_Kapps_DossierLin WITH(NOLOCK)
 WHERE (Status = 'A') AND (Integrada = 'N') 
 AND (CAST(cab.SERIE AS VARCHAR(10)) + '*' + CAST(cab.TPDOC AS VARCHAR(50)) + '*' + CAST(cab.ANO AS VARCHAR(20)) + '*' + CAST(cab.NNUMDOC AS varchar(10)) = StampBo) 
 AND (CAST(lin.NNUMDOC AS VARCHAR(20)) + '*' + CAST(lin.NUMLINHA AS varchar(15)) = StampBi)) AS QuantityPicked, Art.UNBASE AS BaseUnit, lin.UNIDADE AS 'BusyUnit', 
@@ -453,9 +453,9 @@ cab.NNUMDOC AS 'NDC',
 '' AS Filter5
 ,'' as Location											--A Confirmar
 ,'' as Lot												--A Confirmar
-FROM dbo.DOCGCLIN AS lin WITH (NOLOCK) 
-INNER JOIN dbo.DOCGCCAB AS cab WITH (NOLOCK) ON cab.SERIE = lin.SERIE and cab.TPDOC = lin.TPDOCUM  and cab.ANO = lin.ANO and cab.NNUMDOC = lin.NNUMDOC 
-LEFT JOIN dbo.ARTIGOS AS Art WITH (NOLOCK) ON Art.CODIGO = lin.ARTIGO
+FROM dbo.DOCGCLIN AS lin WITH(NOLOCK) 
+INNER JOIN dbo.DOCGCCAB AS cab WITH(NOLOCK) ON cab.SERIE = lin.SERIE and cab.TPDOC = lin.TPDOCUM  and cab.ANO = lin.ANO and cab.NNUMDOC = lin.NNUMDOC 
+LEFT JOIN dbo.ARTIGOS AS Art WITH(NOLOCK) ON Art.CODIGO = lin.ARTIGO
 WHERE (cab.TPFSTC = 0)
 GO
 
@@ -465,11 +465,11 @@ IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'[dbo].[v_Kapps
 DROP view [dbo].[v_Kapps_Units]
 GO
 CREATE view [dbo].[v_Kapps_Units] as 
-  SELECT distinct art.CODIGO as 'Code', art.UNBASE as 'Unit', 1 as 'Factor' FROM ARTIGOS art (NOLOCK) WHERE art.INACTIVO = 0
+  SELECT distinct art.CODIGO as 'Code', art.UNBASE as 'Unit', 1 as 'Factor' FROM ARTIGOS art WITH(NOLOCK) WHERE art.INACTIVO = 0
   UNION ALL
-  SELECT distinct art.CODIGO as 'Code', art.UNEMB as 'Unit', ART.FACTEMB as 'Factor' FROM ARTIGOS art (NOLOCK) WHERE art.INACTIVO = 0 AND art.UNEMB <> '' AND art.UNEMB <> art.UNBASE
+  SELECT distinct art.CODIGO as 'Code', art.UNEMB as 'Unit', ART.FACTEMB as 'Factor' FROM ARTIGOS art WITH(NOLOCK) WHERE art.INACTIVO = 0 AND art.UNEMB <> '' AND art.UNEMB <> art.UNBASE
   UNION ALL
-  SELECT distinct art.CODIGO as 'Code', art.UNTRANS as 'Unit', ART.FACTTRA as 'Factor' FROM ARTIGOS art (NOLOCK) WHERE art.INACTIVO = 0 AND art.UNTRANS <> ''  AND art.UNTRANS <> art.UNBASE
+  SELECT distinct art.CODIGO as 'Code', art.UNTRANS as 'Unit', ART.FACTTRA as 'Factor' FROM ARTIGOS art WITH(NOLOCK) WHERE art.INACTIVO = 0 AND art.UNTRANS <> ''  AND art.UNTRANS <> art.UNBASE
 GO
 
 
@@ -545,7 +545,7 @@ stk.Name as 'DocumentName',								-- Descrição da contagem
 '' as ZoneLocation,
 '' as Location,
 stk.Stamp as InternalStampDoc
-FROM u_Kapps_StockDocs stk
+FROM u_Kapps_StockDocs stk WITH(NOLOCK)
 WHERE stk.Syncr<>'S'
 GO
 
@@ -626,7 +626,7 @@ DROP view [dbo].[v_Kapps_StockBreakReasons]
 GO
 CREATE view [dbo].[v_Kapps_StockBreakReasons] as 
 select ReasonID, ReasonDescription, ReasonType
-FROM u_Kapps_Reasons
+FROM u_Kapps_Reasons WITH(NOLOCK)
 GO
 
 
@@ -692,14 +692,21 @@ select h.SSCC as HeaderSSCC
 , lin.LinUserField8
 , lin.LinUserField9
 , lin.LinUserField10
+, lin.LinUserField11
+, lin.LinUserField12
+, lin.LinUserField13
+, lin.LinUserField14
+, lin.LinUserField15
 , d.Location
 , h.CurrentWarehouse
 , h.CurrentLocation
 , h.PackStatus
 , h.PackType
-FROM u_Kapps_PackingDetails d
-LEFT JOIN u_Kapps_PackingHeader h on h.PackId=d.PackID
-LEFT JOIN u_Kapps_DossierLin lin on lin.StampLin=d.StampLin
+, h.CustomerId
+, h.CustomerName
+FROM u_Kapps_PackingDetails d WITH(NOLOCK)
+LEFT JOIN u_Kapps_PackingHeader h WITH(NOLOCK) on h.PackId=d.PackID
+LEFT JOIN u_Kapps_DossierLin lin WITH(NOLOCK) on lin.StampLin=d.StampLin
 WHERE d.SSCC<>'' or h.SSCC<>''
 GO
 
@@ -738,10 +745,10 @@ cab.NNUMDOC as 'NDC',
 ,'' as TransitWarehouse
 ,'' as DestinationWarehouse
 ,'' as Barcode
-from DOCGCCAB cab (NOLOCK)
-join Clientes cli (NOLOCK) ON cli.CODIGO = cab.TERCEIRO
-join TPDOC tdoc (NOLOCK) on tdoc.CODIGO = cab.TPDOC
-left join u_Kapps_DossierLin (NOLOCK) on (u_Kapps_DossierLin.StampBo = (cast(cab.SERIE AS VARCHAR(20)) + '*' + cast(cab.TPDOC AS VARCHAR(50)) + '*' + cast(cab.ANO AS VARCHAR(20)) + '*' + CAST(cab.NNUMDOC as varchar(10)))) 
+from DOCGCCAB cab WITH(NOLOCK)
+join Clientes cli WITH(NOLOCK) ON cli.CODIGO = cab.TERCEIRO
+join TPDOC tdoc WITH(NOLOCK) on tdoc.CODIGO = cab.TPDOC
+left join u_Kapps_DossierLin WITH(NOLOCK) on (u_Kapps_DossierLin.StampBo = (cast(cab.SERIE AS VARCHAR(20)) + '*' + cast(cab.TPDOC AS VARCHAR(50)) + '*' + cast(cab.ANO AS VARCHAR(20)) + '*' + CAST(cab.NNUMDOC as varchar(10)))) 
 and u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N' 
 where cab.aprovado = 1 and cab.TPFSTC = 0
 GO
@@ -760,15 +767,15 @@ Lin.DESCR as 'Description',
 ((Lin.QTDORIG / Lin.FACTOR) - (Lin.QUANT/ Lin.FACTOR)) AS 'QuantitySatisfied', 
 ((Lin.QTDORIG / Lin.FACTOR) - ((Lin.QTDORIG / Lin.FACTOR) - (Lin.QUANT/ Lin.FACTOR))) -  
        (
-       select isnull(sum(u_Kapps_DossierLin.Qty2),0) 
-       from u_Kapps_DossierLin (NOLOCK) 
+       select COALESCE(sum(u_Kapps_DossierLin.Qty2),0) 
+       from u_Kapps_DossierLin WITH(NOLOCK) 
        where u_Kapps_DossierLin.Status = 'A' 
        and u_Kapps_DossierLin.Integrada = 'N' 
        and ((cast(cab.SERIE AS VARCHAR(10)) + '*' + cast(cab.TPDOC AS VARCHAR(50)) + '*' + cast(cab.ANO AS VARCHAR(20)) + '*' + CAST(cab.NNUMDOC as varchar(10)))=u_Kapps_DossierLin.stampbo) 
        and ((cast(lin.NNUMDOC AS VARCHAR(20)) + '*' + CAST(lin.numlinha as varchar(15))) = u_Kapps_DossierLin.Stampbi))                                         as 'QuantityPending',
               (
-              select isnull(sum(u_Kapps_DossierLin.Qty2),0) 
-              from u_Kapps_DossierLin (NOLOCK) 
+              select COALESCE(sum(u_Kapps_DossierLin.Qty2),0) 
+              from u_Kapps_DossierLin WITH(NOLOCK) 
               where u_Kapps_DossierLin.Status = 'A' 
               and u_Kapps_DossierLin.Integrada = 'N' 
               and ((cast(cab.SERIE AS VARCHAR(10)) + '*' + cast(cab.TPDOC AS VARCHAR(50)) + '*' + cast(cab.ANO AS VARCHAR(20)) + '*' + CAST(cab.NNUMDOC as varchar(10)))=u_Kapps_DossierLin.stampbo) 
@@ -798,9 +805,9 @@ cab.NNUMDOC as 'NDC',
 ,'' as Lot												--A Confirmar
 , '' as PalletType
 , 0 as PalletMaxUnits
-FROM DOCGCLIN lin (NOLOCK) 
-JOIN DOCGCCAB cab (NOLOCK) ON cab.SERIE = lin.SERIE and cab.TPDOC = lin.TPDOCUM  and cab.ANO = lin.ANO and cab.NNUMDOC = lin.NNUMDOC
-LEFT JOIN Artigos Art (NOLOCK) ON Art.CODIGO = lin.Artigo
+FROM DOCGCLIN lin WITH(NOLOCK) 
+JOIN DOCGCCAB cab WITH(NOLOCK) ON cab.SERIE = lin.SERIE and cab.TPDOC = lin.TPDOCUM  and cab.ANO = lin.ANO and cab.NNUMDOC = lin.NNUMDOC
+LEFT JOIN Artigos Art WITH(NOLOCK) ON Art.CODIGO = lin.Artigo
 where cab.aprovado = 1 and cab.TPFSTC = 0
 GO
 

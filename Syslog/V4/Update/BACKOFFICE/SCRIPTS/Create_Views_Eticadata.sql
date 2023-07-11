@@ -17,8 +17,8 @@ select cli.strNome as NAME, cli.intCodigo as Code
 , strObs as OBS
 , 0 AS InternalCustomer						-- 0 Externo, 1 Interno
 , cli.strNome  As ShortName
-from Tbl_Clientes cli (NOLOCK)
-left join Tbl_Grh_Paises pa (NOLOCK) on  pa.intCodigo = intCodPaisNacionalidade
+from Tbl_Clientes cli WITH(NOLOCK)
+left join Tbl_Grh_Paises pa WITH(NOLOCK) on  pa.intCodigo = intCodPaisNacionalidade
 where (cli.bitInactivo = 0)
 GO
 
@@ -37,8 +37,8 @@ select forn.strNome as NAME, forn.intCodigo as Code
 , fltLatitude as Latitude
 , fltLongitude as Longitude
 , strObs as OBS
-from tbl_fornecedores forn (NOLOCK)
-left join Tbl_Grh_Paises pa on  pa.intCodigo = intCountryCodeNationality
+from tbl_fornecedores forn WITH(NOLOCK)
+left join Tbl_Grh_Paises pa WITH(NOLOCK) on  pa.intCodigo = intCountryCodeNationality
 GO
 
 IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'[dbo].[v_Kapps_Documents]'))
@@ -58,7 +58,7 @@ CASE WHEN (bitDispStocks = 0 and intTpEntidade = 0) THEN 'CL' WHEN (bitDispStock
 ,1 as 'ValidaStock'
 ,0 as 'StockBreak'
 ,'' as DefaultEntity
-from Tbl_Tipos_Documentos (NOLOCK)
+from Tbl_Tipos_Documentos WITH(NOLOCK)
 where intTpEntidade IN (0,2)
 GO
 
@@ -69,7 +69,7 @@ CREATE view [dbo].[v_Kapps_Warehouses] as
 select arm.strDescricao as Description, arm.strCodigo as Code
 , arm.bitLocalizacao AS UseLocations					-- (1-Sim) (0-Não)
 , '' AS DefaultLocation
-from Tbl_Gce_Armazens arm (NOLOCK)
+from Tbl_Gce_Armazens arm WITH(NOLOCK)
 GO
 
 IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'[dbo].[v_Kapps_Articles]'))
@@ -78,7 +78,7 @@ GO
 CREATE view [dbo].[v_Kapps_Articles] as 
 select art.strDescricao as 'Description', art.strCodigo as 'Code', art.strCodBarras as 'Barcode',
 art.bitLotes as 'UseLots', art.bitNumSerie as 'UseSerialNumber',
-art.strAbrevMedVnd as 'BaseUnit', ISNULL(arf.strCodFamilia, '') as 'Family', CASE art.bitNaoMovStk WHEN 1 THEN 0 ELSE 1 END as 'MovStock',
+art.strAbrevMedVnd as 'BaseUnit', COALESCE(arf.strCodFamilia, '') as 'Family', CASE art.bitNaoMovStk WHEN 1 THEN 0 ELSE 1 END as 'MovStock',
 '' as 'Filter1','' as 'Filter2','' as 'Filter3','' as 'Filter4','' as 'Filter5', '' AS 'GTIN'
 , '' AS DefaultWarehouse
 , '' AS DefaultLocation
@@ -91,8 +91,8 @@ art.strAbrevMedVnd as 'BaseUnit', ISNULL(arf.strCodFamilia, '') as 'Family', CAS
 , 0 AS StoreInNrDays									-- Nº de dias minimo de validade na receção (excepto se existir regra a contrariar em [Validades mínimas])
 , 0 AS StoreOutNrDays									-- Nº de dias minimo de validade na expedição (excepto se existir regra a contrariar em [Validades mínimas])
 , CAST(0 as int) AS BoxMaxQuantity
-from Tbl_Gce_Artigos art (NOLOCK)
-left join Tbl_Gce_ArtigosFamilias arf on art.strCodigo=arf.strCodArtigo and arf.strCodTpNivel=(select top 1 strCodigo from Tbl_Gce_Tipos_Familias order by intNivel)
+from Tbl_Gce_Artigos art WITH(NOLOCK)
+left join Tbl_Gce_ArtigosFamilias arf WITH(NOLOCK) on art.strCodigo=arf.strCodArtigo and arf.strCodTpNivel=(select top 1 strCodigo from Tbl_Gce_Tipos_Familias order by intNivel)
 where art.bitInactivo = 0
 GO
 
@@ -115,11 +115,11 @@ DROP view [dbo].[v_Kapps_Stock]
 GO
 CREATE view [dbo].[v_Kapps_Stock] as 
 select sa.strCodArtigo as Article, sa.strcodarmazem as Warehouse, sa.fltstockQtd as Stock
-, ISNULL(strCodLocalizacao,'') as Location
+, COALESCE(strCodLocalizacao,'') as Location
 , strCodLote AS Lote
 , sa.fltstockQtd-sa.fltStockReservado as AvailableStock
-from Tbl_Gce_ArtigosArmLocalLote sa (NOLOCK)
-join Tbl_Gce_Artigos art (NOLOCK) on art.strCodigo = sa.strCodArtigo
+from Tbl_Gce_ArtigosArmLocalLote sa WITH(NOLOCK)
+join Tbl_Gce_Artigos art WITH(NOLOCK) on art.strCodigo = sa.strCodArtigo
 where art.bitInactivo = 0
 GO
 
@@ -130,8 +130,8 @@ CREATE view [dbo].[v_Kapps_Lots] as
 select lot.strCodigo as Lot, lot.strCodArtigo as Article, lot.dtmSaida as ExpirationDate
 , lot.dtmEntrada AS ProductionDate
 , CAST(1 as bit) as Actif
-from Tbl_Gce_ArtigosLotes lot (NOLOCK)
-join Tbl_Gce_Artigos art (NOLOCK) on art.strCodigo = lot.strCodArtigo
+from Tbl_Gce_ArtigosLotes lot WITH(NOLOCK)
+join Tbl_Gce_Artigos art WITH(NOLOCK) on art.strCodigo = lot.strCodArtigo
 where art.bitInactivo  = 0
 GO
 
@@ -140,8 +140,8 @@ DROP view [dbo].[v_Kapps_SerialNumbers]
 GO
 CREATE view [dbo].[v_Kapps_SerialNumbers] as 
 select ans.strNumSerie1 as SerialNumber, ans.strCodArtigo as Article, ans.strCodArmazem as Warehouse
-from Tbl_Gce_ArtigosNumSerie  ans (NOLOCK)
-join Tbl_Gce_Artigos art (NOLOCK) on art.strCodigo = ans.strCodArtigo
+from Tbl_Gce_ArtigosNumSerie ans WITH(NOLOCK)
+join Tbl_Gce_Artigos art WITH(NOLOCK) on art.strCodigo = ans.strCodArtigo
 where art.bitInactivo = 0
 GO
 
@@ -149,7 +149,7 @@ IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'[dbo].[v_Kapps
 DROP view [dbo].[v_Kapps_Families]
 GO
 CREATE view [dbo].[v_Kapps_Families] as 
-select strDescricao as 'Description' ,strCodigo as 'Code' from Tbl_Gce_Familias WITH(NOLOCK) WHERE strCodTpFamilia=(select top 1 strCodigo from Tbl_Gce_Tipos_Familias order by intNivel)
+select strDescricao as 'Description' ,strCodigo as 'Code' from Tbl_Gce_Familias WITH(NOLOCK) WHERE strCodTpFamilia=(select top 1 strCodigo from Tbl_Gce_Tipos_Familias WITH(NOLOCK) order by intNivel)
 GO
 
 IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'[dbo].[v_Kapps_Picking_Documents]'))
@@ -183,10 +183,10 @@ cab.intNumero as 'NDC',
 ,cab.intCodEntidade as DeliveryCustomer
 ,cab.intDireccao as DeliveryCode
 ,'' as Barcode
-from Mov_Encomenda_Cab cab (NOLOCK)
-join Tbl_Clientes cli (NOLOCK) ON cli.intcodigo = cab.intCodEntidade
-join Tbl_Tipos_Documentos tdoc (NOLOCK) on tdoc.strAbreviatura = cab.strAbrevTpDoc
-left join u_Kapps_DossierLin (NOLOCK) on (u_Kapps_DossierLin.StampBo = (cab.strCodSeccao + '*' + cab.strAbrevTpDoc + '*' + cab.strCodExercicio + '*' + CAST(cab.intNumero as varchar(9)))) and u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N'
+from Mov_Encomenda_Cab cab WITH(NOLOCK)
+join Tbl_Clientes cli WITH(NOLOCK) ON cli.intcodigo = cab.intCodEntidade
+join Tbl_Tipos_Documentos tdoc WITH(NOLOCK) on tdoc.strAbreviatura = cab.strAbrevTpDoc
+left join u_Kapps_DossierLin WITH(NOLOCK) on (u_Kapps_DossierLin.StampBo = (cab.strCodSeccao + '*' + cab.strAbrevTpDoc + '*' + cab.strCodExercicio + '*' + CAST(cab.intNumero as varchar(9)))) and u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N'
 where tdoc.bitdispencomendas = 1
 and cab.bitAnulado = 0
 GO
@@ -201,11 +201,11 @@ lin.strCodArtigo as 'Article',
 Lin.strDescArtigo as 'Description', 
 Lin.fltQuantidade as 'Quantity',
 (Lin.fltQuantidadeSatisf + Lin.fltQuantidadeAnul) as 'QuantitySatisfied',
-Lin.fltQuantidade - ((Lin.fltQuantidadeSatisf + Lin.fltQuantidadeAnul) + (select isnull(sum(u_Kapps_DossierLin.Qty2),0) from u_Kapps_DossierLin (NOLOCK) where u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N' and ((Lin.strCodSeccao + '*' + Lin.strAbrevTpDoc + '*' + Lin.strCodExercicio + '*' + CAST(Lin.intNumero as varchar(9)))=u_Kapps_DossierLin.stampbo) and ((cast(Lin.intNumLinha as varchar(9)) + '*' + cast(Lin.intNumLinhaReserva as varchar(9))) = u_Kapps_DossierLin.Stampbi)))  as 'QuantityPending',
-(select isnull(sum(u_Kapps_DossierLin.Qty2),0) from u_Kapps_DossierLin (NOLOCK) where u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N' and ((Lin.strCodSeccao + '*' + Lin.strAbrevTpDoc + '*' + Lin.strCodExercicio + '*' + CAST(Lin.intNumero as varchar(9)))=u_Kapps_DossierLin.stampbo) and ((cast(Lin.intNumLinha as varchar(9)) + '*' + cast(Lin.intNumLinhaReserva as varchar(9))) = u_Kapps_DossierLin.Stampbi)) as 'QuantityPicked', 
+Lin.fltQuantidade - ((Lin.fltQuantidadeSatisf + Lin.fltQuantidadeAnul) + (select COALESCE(sum(u_Kapps_DossierLin.Qty2),0) from u_Kapps_DossierLin WITH(NOLOCK) where u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N' and ((Lin.strCodSeccao + '*' + Lin.strAbrevTpDoc + '*' + Lin.strCodExercicio + '*' + CAST(Lin.intNumero as varchar(9)))=u_Kapps_DossierLin.stampbo) and ((cast(Lin.intNumLinha as varchar(9)) + '*' + cast(Lin.intNumLinhaReserva as varchar(9))) = u_Kapps_DossierLin.Stampbi)))  as 'QuantityPending',
+(select COALESCE(sum(u_Kapps_DossierLin.Qty2),0) from u_Kapps_DossierLin WITH(NOLOCK) where u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N' and ((Lin.strCodSeccao + '*' + Lin.strAbrevTpDoc + '*' + Lin.strCodExercicio + '*' + CAST(Lin.intNumero as varchar(9)))=u_Kapps_DossierLin.stampbo) and ((cast(Lin.intNumLinha as varchar(9)) + '*' + cast(Lin.intNumLinhaReserva as varchar(9))) = u_Kapps_DossierLin.Stampbi)) as 'QuantityPicked', 
 Art.strAbrevMedStk AS 'BaseUnit',
-CASE WHEN ISNULL(Art.strAbrevMedVnd,'') <> '' THEN Art.strAbrevMedVnd ELSE Art.strAbrevMedStk END as 'BusyUnit', 
-CASE WHEN ISNULL(Art.strAbrevMedVnd,'') = Art.strAbrevMedStk THEN 1 WHEN ISNULL(Art.strAbrevMedVnd,'') <> '' THEN (SELECT uni.fltFactor from Tbl_Gce_UnidadesConversao uni (NOLOCK) where uni.strAbrevUnidade1 = art.strAbrevMedVnd and uni.strAbrevUnidade2 = art.strAbrevMedStk) ELSE 1 END AS 'ConversionFator',
+CASE WHEN COALESCE(Art.strAbrevMedVnd,'') <> '' THEN Art.strAbrevMedVnd ELSE Art.strAbrevMedStk END as 'BusyUnit', 
+CASE WHEN COALESCE(Art.strAbrevMedVnd,'') = Art.strAbrevMedStk THEN 1 WHEN COALESCE(Art.strAbrevMedVnd,'') <> '' THEN (SELECT uni.fltFactor from Tbl_Gce_UnidadesConversao uni WITH(NOLOCK) where uni.strAbrevUnidade1 = art.strAbrevMedVnd and uni.strAbrevUnidade2 = art.strAbrevMedStk) ELSE 1 END AS 'ConversionFator',
 Lin.strCodArmazem as 'Warehouse', 
 (Lin.strCodSeccao + '*' + Lin.strAbrevTpDoc + '*' + Lin.strCodExercicio + '*' + CAST(Lin.intNumero as varchar(9))) as 'PickingKey',
 Lin.intNumLinhaReserva as 'OriginalLineNumber',
@@ -224,12 +224,12 @@ Lin.strCodSeccao as 'SEC',
 Lin.strAbrevTpDoc as 'TPD',
 Lin.intNumero as 'NDC',
 '' as 'Filter1','' as 'Filter2','' as 'Filter3','' as 'Filter4','' as 'Filter5'
-, ISNULL(lin.strCodLocalizacao,'') AS Location
-, ISNULL(lin.strCodLote,'') AS Lot
+, COALESCE(lin.strCodLocalizacao,'') AS Location
+, COALESCE(lin.strCodLote,'') AS Lot
 , '' as PalletType
 , 0 as PalletMaxUnits
-FROM Mov_Encomenda_Lin lin (NOLOCK) 
-JOIN Tbl_Gce_Artigos Art (NOLOCK) ON Art.strCodigo = lin.strCodArtigo
+FROM Mov_Encomenda_Lin lin WITH(NOLOCK) 
+JOIN Tbl_Gce_Artigos Art WITH(NOLOCK) ON Art.strCodigo = lin.strCodArtigo
 GO
 
 IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'[dbo].[v_Kapps_Packing_Documents]'))
@@ -263,10 +263,10 @@ cab.intNumero as 'NDC',
 ,cab.intCodEntidade as DeliveryCustomer
 ,cab.intDireccao as DeliveryCode
 ,'' as Barcode
-from Mov_Encomenda_Cab cab (NOLOCK)
-join Tbl_Clientes cli (NOLOCK) ON cli.intcodigo = cab.intCodEntidade
-join Tbl_Tipos_Documentos tdoc (NOLOCK) on tdoc.strAbreviatura = cab.strAbrevTpDoc
-left join u_Kapps_DossierLin (NOLOCK) on (u_Kapps_DossierLin.StampBo = (cab.strCodSeccao + '*' + cab.strAbrevTpDoc + '*' + cab.strCodExercicio + '*' + CAST(cab.intNumero as varchar(9)))) and u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N' 
+from Mov_Encomenda_Cab cab WITH(NOLOCK)
+join Tbl_Clientes cli WITH(NOLOCK) ON cli.intcodigo = cab.intCodEntidade
+join Tbl_Tipos_Documentos tdoc WITH(NOLOCK) on tdoc.strAbreviatura = cab.strAbrevTpDoc
+left join u_Kapps_DossierLin WITH(NOLOCK) on (u_Kapps_DossierLin.StampBo = (cab.strCodSeccao + '*' + cab.strAbrevTpDoc + '*' + cab.strCodExercicio + '*' + CAST(cab.intNumero as varchar(9)))) and u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N' 
 where tdoc.bitdispencomendas = 1
 and cab.bitAnulado = 0
 GO
@@ -281,11 +281,11 @@ lin.strCodArtigo as 'Article',
 Lin.strDescArtigo as 'Description', 
 Lin.fltQuantidade as 'Quantity',
 (Lin.fltQuantidadeSatisf + Lin.fltQuantidadeAnul) as 'QuantitySatisfied',
-Lin.fltQuantidade - ((Lin.fltQuantidadeSatisf + Lin.fltQuantidadeAnul) + (select isnull(sum(u_Kapps_DossierLin.Qty2),0) from u_Kapps_DossierLin (NOLOCK) where u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N' and ((Lin.strCodSeccao + '*' + Lin.strAbrevTpDoc + '*' + Lin.strCodExercicio + '*' + CAST(Lin.intNumero as varchar(9)))=u_Kapps_DossierLin.stampbo) and ((cast(Lin.intNumLinha as varchar(9)) + '*' + cast(Lin.intNumLinhaReserva as varchar(9))) = u_Kapps_DossierLin.Stampbi)))  as 'QuantityPending',
-(select isnull(sum(u_Kapps_DossierLin.Qty2),0) from u_Kapps_DossierLin (NOLOCK) where u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N' and ((Lin.strCodSeccao + '*' + Lin.strAbrevTpDoc + '*' + Lin.strCodExercicio + '*' + CAST(Lin.intNumero as varchar(9)))=u_Kapps_DossierLin.stampbo) and ((cast(Lin.intNumLinha as varchar(9)) + '*' + cast(Lin.intNumLinhaReserva as varchar(9))) = u_Kapps_DossierLin.Stampbi)) as 'QuantityPicked', 
+Lin.fltQuantidade - ((Lin.fltQuantidadeSatisf + Lin.fltQuantidadeAnul) + (select COALESCE(sum(u_Kapps_DossierLin.Qty2),0) from u_Kapps_DossierLin WITH(NOLOCK) where u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N' and ((Lin.strCodSeccao + '*' + Lin.strAbrevTpDoc + '*' + Lin.strCodExercicio + '*' + CAST(Lin.intNumero as varchar(9)))=u_Kapps_DossierLin.stampbo) and ((cast(Lin.intNumLinha as varchar(9)) + '*' + cast(Lin.intNumLinhaReserva as varchar(9))) = u_Kapps_DossierLin.Stampbi)))  as 'QuantityPending',
+(select COALESCE(sum(u_Kapps_DossierLin.Qty2),0) from u_Kapps_DossierLin WITH(NOLOCK) where u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N' and ((Lin.strCodSeccao + '*' + Lin.strAbrevTpDoc + '*' + Lin.strCodExercicio + '*' + CAST(Lin.intNumero as varchar(9)))=u_Kapps_DossierLin.stampbo) and ((cast(Lin.intNumLinha as varchar(9)) + '*' + cast(Lin.intNumLinhaReserva as varchar(9))) = u_Kapps_DossierLin.Stampbi)) as 'QuantityPicked', 
 Art.strAbrevMedStk AS 'BaseUnit',
-CASE WHEN ISNULL(Art.strAbrevMedVnd,'') <> '' THEN Art.strAbrevMedVnd ELSE Art.strAbrevMedStk END as 'BusyUnit', 
-CASE WHEN ISNULL(Art.strAbrevMedVnd,'') = Art.strAbrevMedStk THEN 1 WHEN ISNULL(Art.strAbrevMedVnd,'') <> '' THEN (SELECT uni.fltFactor from Tbl_Gce_UnidadesConversao uni (NOLOCK) where uni.strAbrevUnidade1 = art.strAbrevMedVnd and uni.strAbrevUnidade2 = art.strAbrevMedStk) ELSE 1 END AS 'ConversionFator',
+CASE WHEN COALESCE(Art.strAbrevMedVnd,'') <> '' THEN Art.strAbrevMedVnd ELSE Art.strAbrevMedStk END as 'BusyUnit', 
+CASE WHEN COALESCE(Art.strAbrevMedVnd,'') = Art.strAbrevMedStk THEN 1 WHEN COALESCE(Art.strAbrevMedVnd,'') <> '' THEN (SELECT uni.fltFactor from Tbl_Gce_UnidadesConversao uni WITH(NOLOCK) where uni.strAbrevUnidade1 = art.strAbrevMedVnd and uni.strAbrevUnidade2 = art.strAbrevMedStk) ELSE 1 END AS 'ConversionFator',
 Lin.strCodArmazem as 'Warehouse', 
 (Lin.strCodSeccao + '*' + Lin.strAbrevTpDoc + '*' + Lin.strCodExercicio + '*' + CAST(Lin.intNumero as varchar(9))) as 'PackingKey',
 Lin.intNumLinhaReserva as 'OriginalLineNumber',
@@ -304,12 +304,12 @@ Lin.strCodSeccao as 'SEC',
 Lin.strAbrevTpDoc as 'TPD',
 Lin.intNumero as 'NDC',
 '' as 'Filter1','' as 'Filter2','' as 'Filter3','' as 'Filter4','' as 'Filter5'
-, ISNULL(lin.strCodLocalizacao,'') AS Location
-, ISNULL(lin.strCodLote,'') AS Lot
+, COALESCE(lin.strCodLocalizacao,'') AS Location
+, COALESCE(lin.strCodLote,'') AS Lot
 , '' as PalletType
 , 0 as PalletMaxUnits
-FROM Mov_Encomenda_Lin lin (NOLOCK) 
-JOIN Tbl_Gce_Artigos Art (NOLOCK) ON Art.strCodigo = lin.strCodArtigo
+FROM Mov_Encomenda_Lin lin WITH(NOLOCK) 
+JOIN Tbl_Gce_Artigos Art WITH(NOLOCK) ON Art.strCodigo = lin.strCodArtigo
 GO
 
 IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'[dbo].[v_Kapps_Reception_Documents]'))
@@ -342,10 +342,10 @@ cab.intNumero as 'NDC',
 '' as 'Filter1','' as 'Filter2','' as 'Filter3','' as 'Filter4','' as 'Filter5',
 '' as ExternalDoc
 ,'' as Barcode
-from Mov_Encomenda_Cab cab (NOLOCK)
-join Tbl_Fornecedores cli (NOLOCK) ON cli.intcodigo = cab.intCodEntidade
-join Tbl_Tipos_Documentos tdoc (NOLOCK) on tdoc.strAbreviatura = cab.strAbrevTpDoc
-left join u_Kapps_DossierLin (NOLOCK) on (u_Kapps_DossierLin.StampBo = (cab.strCodSeccao + '*' + cab.strAbrevTpDoc + '*' + cab.strCodExercicio + '*' + CAST(cab.intNumero as varchar(9)))) and u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N'
+from Mov_Encomenda_Cab cab WITH(NOLOCK)
+join Tbl_Fornecedores cli WITH(NOLOCK) ON cli.intcodigo = cab.intCodEntidade
+join Tbl_Tipos_Documentos tdoc WITH(NOLOCK) on tdoc.strAbreviatura = cab.strAbrevTpDoc
+left join u_Kapps_DossierLin WITH(NOLOCK) on (u_Kapps_DossierLin.StampBo = (cab.strCodSeccao + '*' + cab.strAbrevTpDoc + '*' + cab.strCodExercicio + '*' + CAST(cab.intNumero as varchar(9)))) and u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N'
 where tdoc.bitdispencomendas = 1
 and cab.bitAnulado = 0
 GO
@@ -360,11 +360,11 @@ lin.strCodArtigo as 'Article',
 Lin.strDescArtigo  as 'Description',
 Lin.fltQuantidade  as 'Quantity',
 (Lin.fltQuantidadeSatisf + Lin.fltQuantidadeAnul) as 'QuantitySatisfied',
-Lin.fltQuantidade - ((Lin.fltQuantidadeSatisf + Lin.fltQuantidadeAnul) + (select isnull(sum(u_Kapps_DossierLin.Qty2),0) from u_Kapps_DossierLin (NOLOCK) where u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N' and ((Lin.strCodSeccao + '*' + Lin.strAbrevTpDoc + '*' + Lin.strCodExercicio + '*' + CAST(Lin.intNumero as varchar(9)))=u_Kapps_DossierLin.stampbo) and ((cast(Lin.intNumLinha as varchar(9)) + '*' + cast(Lin.intNumLinhaReserva as varchar(9))) = u_Kapps_DossierLin.Stampbi)))  as 'QuantityPending',
-(select isnull(sum(u_Kapps_DossierLin.Qty2),0) from u_Kapps_DossierLin (NOLOCK) where u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N' and ((Lin.strCodSeccao + '*' + Lin.strAbrevTpDoc + '*' + Lin.strCodExercicio + '*' + CAST(Lin.intNumero as varchar(9)))=u_Kapps_DossierLin.stampbo) and ((cast(Lin.intNumLinha as varchar(9)) + '*' + cast(Lin.intNumLinhaReserva as varchar(9))) = u_Kapps_DossierLin.Stampbi))  as 'QuantityPicked', 
+Lin.fltQuantidade - ((Lin.fltQuantidadeSatisf + Lin.fltQuantidadeAnul) + (select COALESCE(sum(u_Kapps_DossierLin.Qty2),0) from u_Kapps_DossierLin WITH(NOLOCK) where u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N' and ((Lin.strCodSeccao + '*' + Lin.strAbrevTpDoc + '*' + Lin.strCodExercicio + '*' + CAST(Lin.intNumero as varchar(9)))=u_Kapps_DossierLin.stampbo) and ((cast(Lin.intNumLinha as varchar(9)) + '*' + cast(Lin.intNumLinhaReserva as varchar(9))) = u_Kapps_DossierLin.Stampbi)))  as 'QuantityPending',
+(select COALESCE(sum(u_Kapps_DossierLin.Qty2),0) from u_Kapps_DossierLin WITH(NOLOCK) where u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N' and ((Lin.strCodSeccao + '*' + Lin.strAbrevTpDoc + '*' + Lin.strCodExercicio + '*' + CAST(Lin.intNumero as varchar(9)))=u_Kapps_DossierLin.stampbo) and ((cast(Lin.intNumLinha as varchar(9)) + '*' + cast(Lin.intNumLinhaReserva as varchar(9))) = u_Kapps_DossierLin.Stampbi))  as 'QuantityPicked', 
 Art.strAbrevMedStk AS 'BaseUnit',
-CASE WHEN ISNULL(Art.strAbrevMedCmp,'') <> '' THEN Art.strAbrevMedCmp ELSE Art.strAbrevMedStk END as 'BusyUnit', 
-CASE WHEN ISNULL(Art.strAbrevMedCmp,'') = Art.strAbrevMedStk THEN 1 WHEN ISNULL(Art.strAbrevMedCmp,'') <> '' THEN (SELECT uni.fltFactor from Tbl_Gce_UnidadesConversao uni (NOLOCK) where uni.strAbrevUnidade1 = art.strAbrevMedCmp and uni.strAbrevUnidade2 = art.strAbrevMedStk) ELSE 1 END AS 'ConversionFator',
+CASE WHEN COALESCE(Art.strAbrevMedCmp,'') <> '' THEN Art.strAbrevMedCmp ELSE Art.strAbrevMedStk END as 'BusyUnit', 
+CASE WHEN COALESCE(Art.strAbrevMedCmp,'') = Art.strAbrevMedStk THEN 1 WHEN COALESCE(Art.strAbrevMedCmp,'') <> '' THEN (SELECT uni.fltFactor from Tbl_Gce_UnidadesConversao uni WITH(NOLOCK) where uni.strAbrevUnidade1 = art.strAbrevMedCmp and uni.strAbrevUnidade2 = art.strAbrevMedStk) ELSE 1 END AS 'ConversionFator',
 Lin.strCodArmazem as 'Warehouse',
 (Lin.strCodSeccao + '*' + Lin.strAbrevTpDoc + '*' + Lin.strCodExercicio + '*' + CAST(Lin.intNumero as varchar(9))) as 'ReceptionKey',
 Lin.intNumLinhaReserva as 'OriginalLineNumber',
@@ -383,21 +383,21 @@ Lin.strCodSeccao as 'SEC',
 Lin.strAbrevTpDoc as 'TPD',
 Lin.intNumero as 'NDC',
 '' as 'Filter1','' as 'Filter2','' as 'Filter3','' as 'Filter4','' as 'Filter5'
-, ISNULL(lin.strCodLocalizacao,'') AS Location
-, ISNULL(lin.strCodLote,'') AS Lot
-FROM Mov_Encomenda_Lin lin (NOLOCK) 
-JOIN Tbl_Gce_Artigos Art (NOLOCK) ON Art.strCodigo = lin.strCodArtigo
+, COALESCE(lin.strCodLocalizacao,'') AS Location
+, COALESCE(lin.strCodLote,'') AS Lot
+FROM Mov_Encomenda_Lin lin WITH(NOLOCK) 
+JOIN Tbl_Gce_Artigos Art WITH(NOLOCK) ON Art.strCodigo = lin.strCodArtigo
 GO
 
 IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'[dbo].[v_Kapps_Units]'))
 DROP view [dbo].[v_Kapps_Units]
 GO
 CREATE view [dbo].[v_Kapps_Units] as 
-	SELECT distinct art.strCodigo as 'Code', art.strAbrevMedStk as 'Unit', 1 as 'Factor' FROM Tbl_Gce_Artigos art (NOLOCK) WHERE art.bitInactivo = 0
+	SELECT distinct art.strCodigo as 'Code', art.strAbrevMedStk as 'Unit', 1 as 'Factor' FROM Tbl_Gce_Artigos art WITH(NOLOCK) WHERE art.bitInactivo = 0
 	UNION ALL
-	SELECT distinct art.strCodigo as 'Code', art.strAbrevMedVnd as 'Unit', (select uni.fltFactor from Tbl_Gce_UnidadesConversao uni (NOLOCK) where uni.strAbrevUnidade1 = art.strAbrevMedVnd and uni.strAbrevUnidade2 = art.strAbrevMedStk) as 'Factor' FROM Tbl_Gce_Artigos art (NOLOCK) WHERE art.bitInactivo = 0 and art.strAbrevMedVnd <> '' and art.strAbrevMedVnd <> art.strAbrevMedStk
+	SELECT distinct art.strCodigo as 'Code', art.strAbrevMedVnd as 'Unit', (select uni.fltFactor from Tbl_Gce_UnidadesConversao uni WITH(NOLOCK) where uni.strAbrevUnidade1 = art.strAbrevMedVnd and uni.strAbrevUnidade2 = art.strAbrevMedStk) as 'Factor' FROM Tbl_Gce_Artigos art WITH(NOLOCK) WHERE art.bitInactivo = 0 and art.strAbrevMedVnd <> '' and art.strAbrevMedVnd <> art.strAbrevMedStk
 	UNION ALL
-	SELECT distinct art.strCodigo as 'Code', art.strAbrevMedCmp as 'Unit', (select uni.fltFactor from Tbl_Gce_UnidadesConversao uni (NOLOCK) where uni.strAbrevUnidade1 = art.strAbrevMedCmp and uni.strAbrevUnidade2 = art.strAbrevMedStk) as 'Factor' FROM Tbl_Gce_Artigos art (NOLOCK) WHERE art.bitInactivo = 0 and art.strAbrevMedCmp <> '' and art.strAbrevMedCmp <> art.strAbrevMedStk
+	SELECT distinct art.strCodigo as 'Code', art.strAbrevMedCmp as 'Unit', (select uni.fltFactor from Tbl_Gce_UnidadesConversao uni WITH(NOLOCK) where uni.strAbrevUnidade1 = art.strAbrevMedCmp and uni.strAbrevUnidade2 = art.strAbrevMedStk) as 'Factor' FROM Tbl_Gce_Artigos art WITH(NOLOCK) WHERE art.bitInactivo = 0 and art.strAbrevMedCmp <> '' and art.strAbrevMedCmp <> art.strAbrevMedStk
 GO
 
 
@@ -406,11 +406,11 @@ DROP view [dbo].[v_Kapps_WarehousesLocations]
 GO
 CREATE view [dbo].[v_Kapps_WarehousesLocations] as 
 select 
- loc.strCodArmazem AS Warehouse
+loc.strCodArmazem AS Warehouse
 , '' AS ZoneLocation 
-,loc.strCodLocalizacao AS Location
-,loc.strCodLocalizacao AS Description
-,cast(1 as bit) AS LocActiva 
+, loc.strCodLocalizacao AS Location
+, loc.strCodLocalizacao AS Description
+, cast(1 as bit) AS LocActiva 
 , cast(1 as bit) AS Checkdigit
 , cast(0 as int) AS LocationType		-- 1(Localizações do tipo Receção), 2(Localizações do tipo expedição)
 from Tbl_Gce_ArmazensLocalizacoes loc
@@ -449,7 +449,9 @@ cab.intNumero as 'NDC',			-- Numero de Documento
 '' as InternalStampDoc
 from Mov_Inventario cab WITH(NOLOCK)
 where cab.bitAnulado=0 and cab.bitAcertoStkEfectuado=0
+
 UNION ALL
+
 SELECT 
 stk.Stamp as 'CabKey',		-- Chave unica
 stk.DocDate as 'Date',		-- Data e Hora de criação
@@ -474,7 +476,7 @@ stk.Name as 'DocumentName',	-- Descrição da contagem
 '' as ZoneLocation,
 '' as Location,
 stk.Stamp as InternalStampDoc
-FROM u_Kapps_StockDocs stk
+FROM u_Kapps_StockDocs stk WITH(NOLOCK)
 WHERE stk.Syncr<>'S'
 GO
 
@@ -491,9 +493,9 @@ strCodArtigo as 'Article',
 fltQuantidade as 'Quantity',
 0 as 'QuantityPicked', 
 strAbrevMedida as 'BaseUnit',
-ISNULL(strCodArmazem,'') as 'Warehouse',
-ISNULL(strCodLocalizacao,'') AS Location,
-ISNULL(strCodLote,'') AS Lot,
+COALESCE(strCodArmazem,'') as 'Warehouse',
+COALESCE(strCodLocalizacao,'') AS Location,
+COALESCE(strCodLote,'') AS Lot,
 (strCodSeccao + '*' + strAbrevTpDoc + '*' + strCodExercicio + '*' + CAST(intNumero as varchar(9))) as 'CabKey',
 '' as 'UserCol1',
 '' as 'UserCol2',
@@ -510,7 +512,7 @@ strCodSeccao as 'SEC',			-- Serie/Secção
 strAbrevTpDoc as 'TPD',			-- TipoDocumento
 intNumero as 'NDC',			-- Numero Documento
 '' as 'Filter1','' as 'Filter2','' as 'Filter3','' as 'Filter4','' as 'Filter5'
-FROM Mov_InventarioCont_Lin
+FROM Mov_InventarioCont_Lin WITH(NOLOCK)
 GO
 
 
@@ -557,7 +559,7 @@ DROP view [dbo].[v_Kapps_StockBreakReasons]
 GO
 CREATE view [dbo].[v_Kapps_StockBreakReasons] as 
 select ReasonID, ReasonDescription, ReasonType
-FROM u_Kapps_Reasons
+FROM u_Kapps_Reasons WITH(NOLOCK)
 GO
 
 
@@ -622,14 +624,21 @@ select h.SSCC as HeaderSSCC
 , lin.LinUserField8
 , lin.LinUserField9
 , lin.LinUserField10
+, lin.LinUserField11
+, lin.LinUserField12
+, lin.LinUserField13
+, lin.LinUserField14
+, lin.LinUserField15
 , d.Location
 , h.CurrentWarehouse
 , h.CurrentLocation
 , h.PackStatus
 , h.PackType
-FROM u_Kapps_PackingDetails d
-LEFT JOIN u_Kapps_PackingHeader h on h.PackId=d.PackID
-LEFT JOIN u_Kapps_DossierLin lin on lin.StampLin=d.StampLin
+, h.CustomerId
+, h.CustomerName
+FROM u_Kapps_PackingDetails d WITH(NOLOCK)
+LEFT JOIN u_Kapps_PackingHeader h WITH(NOLOCK) on h.PackId=d.PackID
+LEFT JOIN u_Kapps_DossierLin lin WITH(NOLOCK) on lin.StampLin=d.StampLin
 WHERE d.SSCC<>'' or h.SSCC<>''
 GO
 
@@ -667,30 +676,85 @@ cab.intNumero as 'NDC',
 ,'' as OriginWarehouse
 ,'' as TransitWarehouse
 ,'' as DestinationWarehouse
+--
+-- comentar as linhas anteriores e descomentar as linhas seguintes após ter criado os campos de utilizador 
+--
+--,CA_ArmazemOrigem as OriginWarehouse
+--,CA_ArmazemTransito as TransitWarehouse
+--,CA_ArmazemDestino as DestinationWarehouse
 ,'' as Barcode
-from Mov_Encomenda_Cab cab (NOLOCK)
-join Tbl_Clientes cli (NOLOCK) ON cli.intcodigo = cab.intCodEntidade
-join Tbl_Tipos_Documentos tdoc (NOLOCK) on tdoc.strAbreviatura = cab.strAbrevTpDoc
-left join u_Kapps_DossierLin (NOLOCK) on (u_Kapps_DossierLin.StampBo = (cab.strCodSeccao + '*' + cab.strAbrevTpDoc + '*' + cab.strCodExercicio + '*' + CAST(cab.intNumero as varchar(9)))) and u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N'
+from Mov_Encomenda_Cab cab WITH(NOLOCK)
+join Tbl_Clientes cli WITH(NOLOCK) ON cli.intcodigo = cab.intCodEntidade
+join Tbl_Tipos_Documentos tdoc WITH(NOLOCK) on tdoc.strAbreviatura = cab.strAbrevTpDoc
+left join u_Kapps_DossierLin WITH(NOLOCK) on (u_Kapps_DossierLin.StampBo = (cab.strCodSeccao + '*' + cab.strAbrevTpDoc + '*' + cab.strCodExercicio + '*' + CAST(cab.intNumero as varchar(9)))) and u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N'
 where tdoc.bitdispencomendas = 1
 and cab.bitAnulado = 0
+--and COALESCE(cab.CA_ArmazemOrigem,'')<>'' 							--retirar comentario após ter criado os campos de utilizador 
+
+UNION ALL
+
+ select distinct 
+(cab.strCodSeccao + '*' + cab.strAbrevTpDoc + '*' + cab.strCodExercicio + '*' + CAST(cab.intNumero as varchar(9))) as 'PickingKey',
+cab.intNumero as 'Number',
+'' as 'CustomerName',
+cab.dtmdata as 'Date',
+'' as 'Customer',
+cab.strAbrevTpDoc as 'Document', 
+tdoc.strDescricao as 'DocumentName', 
+'' as 'UserCol1',
+'' as 'UserCol2',
+'' as 'UserCol3',
+'' as 'UserCol4',
+'' as 'UserCol5',
+'' as 'UserCol6',
+'' as 'UserCol7',
+'' as 'UserCol8',
+'' as 'UserCol9',
+'' as 'UserCol10',
+cab.strCodExercicio as 'EXR',
+cab.strCodSeccao as 'SEC',
+cab.strAbrevTpDoc as 'TPD',
+cab.intNumero as 'NDC',
+'' as 'Filter1','' as 'Filter2','' as 'Filter3','' as 'Filter4','' as 'Filter5'
+,'' as DeliveryCustomer
+,0 as DeliveryCode
+,'' as OriginWarehouse
+,'' as TransitWarehouse
+,'' as DestinationWarehouse
+--
+-- comentar as linhas anteriores e descomentar as linhas seguintes após ter criado os campos de utilizador 
+--
+--,CA_ArmazemOrigem as OriginWarehouse
+--,CA_ArmazemTransito as TransitWarehouse
+--,CA_ArmazemDestino as DestinationWarehouse
+,'' as Barcode
+from Mov_Stock_Cab cab WITH(NOLOCK)
+join Tbl_Tipos_Documentos tdoc WITH(NOLOCK) on tdoc.strAbreviatura = cab.strAbrevTpDoc
+left join u_Kapps_DossierLin WITH(NOLOCK) on (u_Kapps_DossierLin.StampBo = (cab.strCodSeccao + '*' + cab.strAbrevTpDoc + '*' + cab.strCodExercicio + '*' + CAST(cab.intNumero as varchar(9)))) and u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N'
+where tdoc.bitdispstocks = 1
+and cab.bitAnulado = 0
+--and COALESCE(cab.CA_ArmazemOrigem,'')<>'' 							--retirar comentario após ter criado os campos de utilizador 
 GO
 
 IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'[dbo].[v_Kapps_PickTransf_Lines]'))
 DROP view [dbo].[v_Kapps_PickTransf_Lines]
 GO
 CREATE view [dbo].[v_Kapps_PickTransf_Lines] as
-  Select 
+Select 
 (cast(Lin.intNumLinha as varchar(9)) + '*' + cast(Lin.intNumLinhaReserva as varchar(9))) as 'PickingLineKey', 
 lin.strCodArtigo as 'Article', 
 Lin.strDescArtigo as 'Description', 
 Lin.fltQuantidade as 'Quantity',
-(Lin.fltQuantidadeSatisf + Lin.fltQuantidadeAnul) as 'QuantitySatisfied',
-Lin.fltQuantidade - ((Lin.fltQuantidadeSatisf + Lin.fltQuantidadeAnul) + (select isnull(sum(u_Kapps_DossierLin.Qty2),0) from u_Kapps_DossierLin (NOLOCK) where u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N' and ((Lin.strCodSeccao + '*' + Lin.strAbrevTpDoc + '*' + Lin.strCodExercicio + '*' + CAST(Lin.intNumero as varchar(9)))=u_Kapps_DossierLin.stampbo) and ((cast(Lin.intNumLinha as varchar(9)) + '*' + cast(Lin.intNumLinhaReserva as varchar(9))) = u_Kapps_DossierLin.Stampbi)))  as 'QuantityPending',
-(select isnull(sum(u_Kapps_DossierLin.Qty2),0) from u_Kapps_DossierLin (NOLOCK) where u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N' and ((Lin.strCodSeccao + '*' + Lin.strAbrevTpDoc + '*' + Lin.strCodExercicio + '*' + CAST(Lin.intNumero as varchar(9)))=u_Kapps_DossierLin.stampbo) and ((cast(Lin.intNumLinha as varchar(9)) + '*' + cast(Lin.intNumLinhaReserva as varchar(9))) = u_Kapps_DossierLin.Stampbi)) as 'QuantityPicked', 
+((Lin.fltQuantidadeSatisf + Lin.fltQuantidadeAnul) 
+--+ lin.CA_QuantidadeAlternativa							-- descomentar a linha após ter criado o campo de utilizador
+) as 'QuantitySatisfied',
+Lin.fltQuantidade - (((Lin.fltQuantidadeSatisf + Lin.fltQuantidadeAnul) 
+--+ lin.CA_QuantidadeAlternativa 							-- descomentar a linha após ter criado o campo de utilizador
+) + (select COALESCE(sum(u_Kapps_DossierLin.Qty2),0) from u_Kapps_DossierLin WITH(NOLOCK) where u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N' and ((Lin.strCodSeccao + '*' + Lin.strAbrevTpDoc + '*' + Lin.strCodExercicio + '*' + CAST(Lin.intNumero as varchar(9)))=u_Kapps_DossierLin.stampbo) and ((cast(Lin.intNumLinha as varchar(9)) + '*' + cast(Lin.intNumLinhaReserva as varchar(9))) = u_Kapps_DossierLin.Stampbi)))  as 'QuantityPending',
+(select COALESCE(sum(u_Kapps_DossierLin.Qty2),0) from u_Kapps_DossierLin WITH(NOLOCK) where u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N' and ((Lin.strCodSeccao + '*' + Lin.strAbrevTpDoc + '*' + Lin.strCodExercicio + '*' + CAST(Lin.intNumero as varchar(9)))=u_Kapps_DossierLin.stampbo) and ((cast(Lin.intNumLinha as varchar(9)) + '*' + cast(Lin.intNumLinhaReserva as varchar(9))) = u_Kapps_DossierLin.Stampbi)) as 'QuantityPicked', 
 Art.strAbrevMedStk AS 'BaseUnit',
-CASE WHEN ISNULL(Art.strAbrevMedVnd,'') <> '' THEN Art.strAbrevMedVnd ELSE Art.strAbrevMedStk END as 'BusyUnit', 
-CASE WHEN ISNULL(Art.strAbrevMedVnd,'') = Art.strAbrevMedStk THEN 1 WHEN ISNULL(Art.strAbrevMedVnd,'') <> '' THEN (SELECT uni.fltFactor from Tbl_Gce_UnidadesConversao uni (NOLOCK) where uni.strAbrevUnidade1 = art.strAbrevMedVnd and uni.strAbrevUnidade2 = art.strAbrevMedStk) ELSE 1 END AS 'ConversionFator',
+CASE WHEN COALESCE(Art.strAbrevMedVnd,'') <> '' THEN Art.strAbrevMedVnd ELSE Art.strAbrevMedStk END as 'BusyUnit', 
+CASE WHEN COALESCE(Art.strAbrevMedVnd,'') = Art.strAbrevMedStk THEN 1 WHEN COALESCE(Art.strAbrevMedVnd,'') <> '' THEN (SELECT uni.fltFactor from Tbl_Gce_UnidadesConversao uni WITH(NOLOCK) where uni.strAbrevUnidade1 = art.strAbrevMedVnd and uni.strAbrevUnidade2 = art.strAbrevMedStk) ELSE 1 END AS 'ConversionFator',
 Lin.strCodArmazem as 'Warehouse', 
 (Lin.strCodSeccao + '*' + Lin.strAbrevTpDoc + '*' + Lin.strCodExercicio + '*' + CAST(Lin.intNumero as varchar(9))) as 'PickingKey',
 Lin.intNumLinhaReserva as 'OriginalLineNumber',
@@ -709,12 +773,53 @@ Lin.strCodSeccao as 'SEC',
 Lin.strAbrevTpDoc as 'TPD',
 Lin.intNumero as 'NDC',
 '' as 'Filter1','' as 'Filter2','' as 'Filter3','' as 'Filter4','' as 'Filter5'
-, ISNULL(lin.strCodLocalizacao,'') AS Location
-, ISNULL(lin.strCodLote,'') AS Lot
+, COALESCE(lin.strCodLocalizacao,'') AS Location
+, COALESCE(lin.strCodLote,'') AS Lot
 , '' as PalletType
 , 0 as PalletMaxUnits
-FROM Mov_Encomenda_Lin lin (NOLOCK) 
-JOIN Tbl_Gce_Artigos Art (NOLOCK) ON Art.strCodigo = lin.strCodArtigo
+FROM Mov_Encomenda_Lin lin WITH(NOLOCK) 
+JOIN Tbl_Gce_Artigos Art WITH(NOLOCK) ON Art.strCodigo = lin.strCodArtigo
+
+UNION ALL
+
+Select 
+(cast(Lin.intNumLinha as varchar(9))) as 'PickingLineKey', 
+lin.strCodArtigo as 'Article', 
+Art.strDescricao as 'Description', 
+Lin.fltQuantidade as 'Quantity',
+0 as 'QuantitySatisfied',
+--lin.CA_QuantidadeAlternativa as 'QuantitySatisfied',							-- descomentar a linha e eliminar a linha anterior após ter criado o campo de utilizador
+fltQuantidade 
+-- -lin.CA_QuantidadeAlternativa 										-- descomentar a linha após ter criado o campo de utilizador
+- (select COALESCE(sum(u_Kapps_DossierLin.Qty2),0) from u_Kapps_DossierLin WITH(NOLOCK) where u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N' and ((Lin.strCodSeccao + '*' + Lin.strAbrevTpDoc + '*' + Lin.strCodExercicio + '*' + CAST(Lin.intNumero as varchar(9)))=u_Kapps_DossierLin.stampbo) and ((cast(Lin.intNumLinha as varchar(9))) = u_Kapps_DossierLin.Stampbi))  as 'QuantityPending',
+(select COALESCE(sum(u_Kapps_DossierLin.Qty2),0) from u_Kapps_DossierLin WITH(NOLOCK) where u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N' and ((Lin.strCodSeccao + '*' + Lin.strAbrevTpDoc + '*' + Lin.strCodExercicio + '*' + CAST(Lin.intNumero as varchar(9)))=u_Kapps_DossierLin.stampbo) and ((cast(Lin.intNumLinha as varchar(9))) = u_Kapps_DossierLin.Stampbi)) as 'QuantityPicked', 
+Art.strAbrevMedStk AS 'BaseUnit',
+CASE WHEN COALESCE(Art.strAbrevMedVnd,'') <> '' THEN Art.strAbrevMedVnd ELSE Art.strAbrevMedStk END as 'BusyUnit', 
+CASE WHEN COALESCE(Art.strAbrevMedVnd,'') = Art.strAbrevMedStk THEN 1 WHEN COALESCE(Art.strAbrevMedVnd,'') <> '' THEN (SELECT uni.fltFactor from Tbl_Gce_UnidadesConversao uni WITH(NOLOCK) where uni.strAbrevUnidade1 = art.strAbrevMedVnd and uni.strAbrevUnidade2 = art.strAbrevMedStk) ELSE 1 END AS 'ConversionFator',
+Lin.strCodArmazem as 'Warehouse', 
+(Lin.strCodSeccao + '*' + Lin.strAbrevTpDoc + '*' + Lin.strCodExercicio + '*' + CAST(Lin.intNumero as varchar(9))) as 'PickingKey',
+0 'OriginalLineNumber',
+'' as UserCol1,
+'' as UserCol2,
+'' as UserCol3,
+'' as UserCol4,
+'' as UserCol5,
+'' as UserCol6,
+'' as UserCol7,
+'' as UserCol8,
+'' as UserCol9,
+'' as UserCol10,
+Lin.strCodExercicio as 'EXR',
+Lin.strCodSeccao as 'SEC',
+Lin.strAbrevTpDoc as 'TPD',
+Lin.intNumero as 'NDC',
+'' as 'Filter1','' as 'Filter2','' as 'Filter3','' as 'Filter4','' as 'Filter5'
+, COALESCE(lin.strCodLocalizacao,'') AS Location
+, COALESCE(lin.strCodLote,'') AS Lot
+, '' as PalletType
+, 0 as PalletMaxUnits
+FROM Mov_Stock_Lin lin WITH(NOLOCK) 
+JOIN Tbl_Gce_Artigos Art WITH(NOLOCK) ON Art.strCodigo = lin.strCodArtigo
 GO
 
 

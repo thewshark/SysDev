@@ -9,6 +9,7 @@ BEGIN
 	DECLARE @ErrorState INT
 
 	DECLARE @DatabaseVersion INT
+	DECLARE @ThisScriptVersion INT
 
 	DECLARE @estado varchar(5)
     DECLARE @descerro varchar(255)
@@ -24,7 +25,7 @@ BEGIN
 	--Vai buscar a versão da base de dados e compara com a versão da base de dados desta versão do backoffice
 	IF EXISTS(SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'General') AND type in (N'U'))
 	BEGIN
-		SELECT @DatabaseVersion = ISNULL(ParameterValue, 0) FROM General (NOLOCK) WHERE (UPPER(ParameterID)) = 'GENERAL_DATABASEVERSION'
+		SELECT @DatabaseVersion = COALESCE(ParameterValue, 0) FROM General (NOLOCK) WHERE (UPPER(ParameterID)) = 'GENERAL_DATABASEVERSION'
 	END
 	ELSE
 		SELECT @DatabaseVersion = 0
@@ -115,12 +116,22 @@ BEGIN
 		END
 		-- versão 8 end
 
-		
+		IF (@DatabaseVersion < 9)
+		BEGIN
+			ALTER TABLE CompaniesProperties ALTER COLUMN ParameterValue nvarchar(500)
+		END
+
 		--
 		-- Actualizar GENERAL DATABASEVERSION
 		--
+		SET @ThisScriptVersion = 9
+		
+		IF (@ThisScriptVersion <> @GeneralDBVersion)
+		BEGIN
+			SET @ErrorMessage = 'A versão dos scripts da base de dados general (' + CAST(@ThisScriptVersion as varchar(5))  + ') não corresponde com a versão do backoffice ('+ CAST(@GeneralDBVersion as varchar(5))+')';
+			RAISERROR (@ErrorMessage, 16, 1);
+		END		
 		UPDATE General SET ParameterValue = @GeneralDBVersion WHERE ParameterID = 'General_DatabaseVersion'
-
 	END
 
 	COMMIT TRANSACTION

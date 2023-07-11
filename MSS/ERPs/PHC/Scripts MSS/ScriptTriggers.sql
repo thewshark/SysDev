@@ -1229,3 +1229,27 @@ BEGIN
 END
 GO
 --********************* // TR_MSSBCL_CHECK_DUPLICATE ************************************
+
+--********************* TR_MSRTD_CHECK_DUPLICATE ************************************
+DROP TRIGGER TR_MSRTD_CHECK_DUPLICATE 
+GO
+CREATE TRIGGER [dbo].[TR_MSRTD_CHECK_DUPLICATE] ON [dbo].[MSRTD] INSTEAD OF INSERT
+AS 
+BEGIN
+	SET NOCOUNT ON;
+
+	DECLARE @exr VARCHAR(60)
+	DECLARE @ser VARCHAR(400)
+	DECLARE @ndc INT
+	DECLARE @stp VARCHAR(60)
+	DECLARE @CntCount INT
+
+	SELECT @exr = RTDEXR, @ser = RTDSER, @ndc = RTDNDC, @stp = RTDSTP FROM INSERTED
+	SELECT @CntCount = Count(*) FROM MSRTD(nolock) WHERE RTDEXR = @exr AND RTDSER = @ser AND RTDNDC = @ndc AND @stp = RTDSTP
+	IF @CntCount > 0
+		DELETE FROM MSRTD WHERE RTDEXR = @exr AND RTDSER = @ser AND RTDNDC = @ndc AND @stp = RTDSTP
+
+	INSERT INTO MSRTD SELECT * FROM INSERTED
+END
+GO
+--********************* // TR_MSRTD_CHECK_DUPLICATE ************************************

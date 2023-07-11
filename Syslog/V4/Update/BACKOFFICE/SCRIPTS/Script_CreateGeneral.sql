@@ -45,7 +45,7 @@ CREATE TABLE Companies(
 CREATE TABLE CompaniesProperties(
 	CompanyID numeric(18, 0) NULL,
 	ParameterID nvarchar(100) NULL,
-	ParameterValue nvarchar(200) NULL,
+	ParameterValue nvarchar(500) NULL,
 	Description nvarchar(100) NULL
 );
 CREATE TABLE Devices(
@@ -74,7 +74,8 @@ CREATE TABLE ParametersProperties(
 GO
 
 INSERT INTO ParametersProperties (ParameterType, ParameterID, ParameterDefaultValue, ParameterDescription) VALUES 
-(N'Companies', N'DatabaseType', N'1', N'1-MS SQL Server  2-Outras BD'),
+(N'Companies', N'DatabaseType', N'1', N'SQL, DB2 ou ORACLE'),
+(N'Companies', N'DatabaseConnection', N'1', N'1-OLEDB  2-ODBC'),
 (N'Companies', N'Company_MIS_General', N'1', N''),
 (N'Companies', N'CompanyERP', N'', N'ID da empresa no ERP'),
 (N'Companies', N'ERP_OLEDB_Server', N'', N'Servidor OLEDB do ERP'),
@@ -90,11 +91,12 @@ INSERT INTO ParametersProperties (ParameterType, ParameterID, ParameterDefaultVa
 (N'Companies', N'Company_MIS_Retries', N'3', N'Tentativas do MIS Communicator'),
 (N'Companies', N'Company_MIS_EncryptionType', N'', N'Tipo de encriptação do MIS Communicator'),
 (N'Companies', N'Company_MIS_Password', N'', N'Password de encriptação do MIS Communicator'),
-(N'Companies', N'ERP_ODBC_Collection', N'', N'Collection para ligação ODBC ao ERP - Para tipo de BD outras'),
-(N'Companies', N'ERP_ODBC_Port', N'', N'Porta para ligação ODBC ao ERP - Para tipo de BD outras'),
-(N'Companies', N'ERP_ODBC_Name', N'', N'Nome para ligação ODBC ao ERP - Para tipo de BD outras'),
-(N'Companies', N'ERP_ODBC_User', N'', N'Utilizador para ligação ODBC ao ERP - Para tipo de BD outras'),
-(N'Companies', N'ERP_ODBC_Password', N'', N'Password para ligação ODBC ao ERP - Para tipo de BD outras'),
+(N'Companies', N'ERP_ODBC_Collection', N'', N'Collection para ligação ODBC ao ERP'),
+(N'Companies', N'ERP_ODBC_Port', N'', N'Porta para ligação ODBC ao ERP'),
+(N'Companies', N'ERP_ODBC_Name', N'', N'Nome para ligação ODBC ao ERP'),
+(N'Companies', N'ERP_ODBC_User', N'', N'Utilizador para ligação ODBC ao ERP'),
+(N'Companies', N'ERP_ODBC_Password', N'', N'Password para ligação ODBC ao ERP'),
+(N'Companies', N'ERP_ODBC_ConnectionString', N'', N'Connectionstring completa'),
 (N'Companies', N'Company_SMTP_Server', N'', N'Servidor SMTP'),
 (N'Companies', N'Company_SMTP_Port', N'', N'Porta SMTP'),
 (N'Companies', N'Company_SMTP_User', N'', N'Utilizador SMTP'),

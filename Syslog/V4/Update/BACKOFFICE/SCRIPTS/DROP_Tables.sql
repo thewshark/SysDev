@@ -296,3 +296,23 @@ GO
 IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'u_Kapps_Reasons') AND type in (N'U'))
 DROP TABLE u_Kapps_Reasons
 GO
+
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'u_Kapps_InquiryAnswersStampLin') AND type in (N'U'))
+DROP TABLE u_Kapps_InquiryAnswersStampLin
+GO
+
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'u_Kapps_LogSP') AND type in (N'U'))
+DROP TABLE u_Kapps_LogSP
+GO
+
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'u_Kapps_NumeratorsSet') AND type in (N'U'))
+DROP TABLE u_Kapps_NumeratorsSet
+GO
+
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'u_Kapps_tBOM_Header') AND type in (N'U'))
+DROP TABLE u_Kapps_tBOM_Header
+GO
+
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'u_Kapps_tBOM_Items') AND type in (N'U'))
+DROP TABLE u_Kapps_tBOM_Items
+GO

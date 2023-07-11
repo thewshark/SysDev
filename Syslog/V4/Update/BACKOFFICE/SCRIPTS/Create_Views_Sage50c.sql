@@ -17,9 +17,10 @@ select cli.OrganizationName as NAME, cli.CustomerID as Code
 , Comments as OBS
 , 0 AS InternalCustomer						-- 0 Externo, 1 Interno
 , cli.OrganizationName As ShortName
-FROM Customer cli (NOLOCK)
-left join PartyAddress (NOLOCK) on cli.PartyID = PartyAddress.PartyID left join CountryCodes on PartyAddress.CountryID = CountryCodes.CountryID
-left join LocalityCodes (NOLOCK) on LocalityCodes.CountryID = PartyAddress.CountryID AND LocalityCodes.ProvinceID = PartyAddress.ProvinceID AND LocalityCodes.LocalityID = PartyAddress.LocalityID
+FROM Customer cli WITH(NOLOCK)
+left join PartyAddress WITH(NOLOCK) on cli.PartyID = PartyAddress.PartyID
+left join CountryCodes WITH(NOLOCK) on PartyAddress.CountryID = CountryCodes.CountryID
+left join LocalityCodes WITH(NOLOCK) on LocalityCodes.CountryID = PartyAddress.CountryID AND LocalityCodes.ProvinceID = PartyAddress.ProvinceID AND LocalityCodes.LocalityID = PartyAddress.LocalityID
 where cli.ActiveParty = 1
 GO
 
@@ -40,9 +41,10 @@ select forn.OrganizationName as NAME, forn.SupplierID as Code
 , CAST(0 as numeric(10,6)) as Latitude
 , CAST(0 as numeric(10,6)) as Longitude
 , Comments as OBS
-FROM Supplier forn (NOLOCK)
-left join PartyAddress (NOLOCK) on forn.PartyID = PartyAddress.PartyID left join CountryCodes on PartyAddress.CountryID = CountryCodes.CountryID
-left join LocalityCodes (NOLOCK) on LocalityCodes.CountryID = PartyAddress.CountryID AND LocalityCodes.ProvinceID = PartyAddress.ProvinceID AND LocalityCodes.LocalityID = PartyAddress.LocalityID
+FROM Supplier forn WITH(NOLOCK)
+left join PartyAddress WITH(NOLOCK) on forn.PartyID = PartyAddress.PartyID
+left join CountryCodes WITH(NOLOCK) on PartyAddress.CountryID = CountryCodes.CountryID
+left join LocalityCodes WITH(NOLOCK) on LocalityCodes.CountryID = PartyAddress.CountryID AND LocalityCodes.ProvinceID = PartyAddress.ProvinceID AND LocalityCodes.LocalityID = PartyAddress.LocalityID
 where forn.ActiveParty = 1
 GO
 
@@ -53,19 +55,19 @@ DROP view [dbo].[v_Kapps_Documents]
 GO
 CREATE view [dbo].[v_Kapps_Documents]  
 as
-select Description as 'Description', documents.TransDocumentID as Code,0 as orders, 1 as sales, 0 as purchase, 0 as internal, 0 as stock, 0 as transfer, 'CL' as Entity, 1 as 'ValidaStock',0 as 'StockBreak', '' as DefaultEntity  from documents (nolock) join documentsname (nolock) on documents.TransDocumentID=DocumentsName.TransDocumentID  where transdoctype=1 and transactionNatureID not in (1060,1100) and inactive=0 and DocumentsName.LanguageID='PTG'
+select Description as 'Description', documents.TransDocumentID as Code,0 as orders, 1 as sales, 0 as purchase, 0 as internal, 0 as stock, 0 as transfer, 'CL' as Entity, 1 as 'ValidaStock',0 as 'StockBreak', '' as DefaultEntity  from documents WITH(NOLOCK) join documentsname WITH(NOLOCK) on documents.TransDocumentID=DocumentsName.TransDocumentID  where transdoctype=1 and transactionNatureID not in (1060,1100) and inactive=0 and DocumentsName.LanguageID='PTG'
 union all
-select Description as 'Description', documents.TransDocumentID as Code,1 as orders,0 as sales,0 as purchase,0 as internal,0 as stock,0 as transfer, case when transactionNatureID=1060 then 'CL' else 'FL' end as Entity, 1 as 'ValidaStock',0 as 'StockBreak','' as DefaultEntity from documents (nolock) join documentsname (nolock) on documents.TransDocumentID=DocumentsName.TransDocumentID where /*transdoctype=1 and*/ transactionNatureID = 1060 and inactive=0 and DocumentsName.LanguageID='PTG'
+select Description as 'Description', documents.TransDocumentID as Code,1 as orders,0 as sales,0 as purchase,0 as internal,0 as stock,0 as transfer, case when transactionNatureID=1060 then 'CL' else 'FL' end as Entity, 1 as 'ValidaStock',0 as 'StockBreak','' as DefaultEntity from documents WITH(NOLOCK) join documentsname WITH(NOLOCK) on documents.TransDocumentID=DocumentsName.TransDocumentID where /*transdoctype=1 and*/ transactionNatureID = 1060 and inactive=0 and DocumentsName.LanguageID='PTG'
 union all
-select Description as 'Description', documents.TransDocumentID as Code, 0 as orders, 0 as sales, 1 as purchase,0 as internal, 0 as stock, 0 as transfer, 'FL' as Entity, 1 as 'ValidaStock',0 as 'StockBreak', '' as DefaultEntity from documents (nolock) join documentsname (nolock) on documents.TransDocumentID=DocumentsName.TransDocumentID where transdoctype=0 and transactionNatureID <> 2100 and inactive=0  and DocumentsName.LanguageID='PTG'
+select Description as 'Description', documents.TransDocumentID as Code, 0 as orders, 0 as sales, 1 as purchase,0 as internal, 0 as stock, 0 as transfer, 'FL' as Entity, 1 as 'ValidaStock',0 as 'StockBreak', '' as DefaultEntity from documents WITH(NOLOCK) join documentsname WITH(NOLOCK) on documents.TransDocumentID=DocumentsName.TransDocumentID where transdoctype=0 and transactionNatureID <> 2100 and inactive=0  and DocumentsName.LanguageID='PTG'
 union all
-select Description as 'Description', documents.TransDocumentID as Code, 0 as orders, 0 as sales, 0 as purchase, 0 as internal, 1 as stock, 0 as transfer, '' as Entity, 1 as 'ValidaStock',0 as 'StockBreak', '' as DefaultEntity from documents (nolock) join documentsname (nolock) on documents.TransDocumentID=DocumentsName.TransDocumentID where transdoctype=2 and transactionNatureID<>3004 and inactive=0 and DocumentsName.LanguageID='PTG'
+select Description as 'Description', documents.TransDocumentID as Code, 0 as orders, 0 as sales, 0 as purchase, 0 as internal, 1 as stock, 0 as transfer, '' as Entity, 1 as 'ValidaStock',0 as 'StockBreak', '' as DefaultEntity from documents WITH(NOLOCK) join documentsname WITH(NOLOCK) on documents.TransDocumentID=DocumentsName.TransDocumentID where transdoctype=2 and transactionNatureID<>3004 and inactive=0 and DocumentsName.LanguageID='PTG'
 union all
-select Description as 'Description', documents.TransDocumentID as Code, 0 as orders, 0 as sales, 0 as purchase, 0 as internal, 0 as stock, 1 as transfer, '' as Entity, 1 as 'ValidaStock',0 as 'StockBreak', '' as DefaultEntity  from documents (nolock) join documentsname (nolock) on documents.TransDocumentID=DocumentsName.TransDocumentID where transdoctype=2 and transactionNatureID=3004 and inactive=0 and DocumentsName.LanguageID='PTG'
+select Description as 'Description', documents.TransDocumentID as Code, 0 as orders, 0 as sales, 0 as purchase, 0 as internal, 0 as stock, 1 as transfer, '' as Entity, 1 as 'ValidaStock',0 as 'StockBreak', '' as DefaultEntity  from documents WITH(NOLOCK) join documentsname WITH(NOLOCK) on documents.TransDocumentID=DocumentsName.TransDocumentID where transdoctype=2 and transactionNatureID=3004 and inactive=0 and DocumentsName.LanguageID='PTG'
 union all
-select Description as 'Description', documents.TransDocumentID as Code,1 as orders,0 as sales,0 as purchase,0 as internal,0 as stock,0 as transfer, case when transactionNatureID=1100 then 'CL' else 'FL' end as Entity, 1 as 'ValidaStock',0 as 'StockBreak', '' as DefaultEntity from documents (nolock) join documentsname (nolock) on documents.TransDocumentID=DocumentsName.TransDocumentID where transactionNatureID = 1100 and inactive=0 and DocumentsName.LanguageID='PTG'
+select Description as 'Description', documents.TransDocumentID as Code,1 as orders,0 as sales,0 as purchase,0 as internal,0 as stock,0 as transfer, case when transactionNatureID=1100 then 'CL' else 'FL' end as Entity, 1 as 'ValidaStock',0 as 'StockBreak', '' as DefaultEntity from documents WITH(NOLOCK) join documentsname WITH(NOLOCK) on documents.TransDocumentID=DocumentsName.TransDocumentID where transactionNatureID = 1100 and inactive=0 and DocumentsName.LanguageID='PTG'
 union all
-select Description as 'Description', documents.TransDocumentID as Code,0 as orders,0 as sales,1 as purchase,0 as internal,0 as stock,0 as transfer, case when transactionNatureID=1100 then 'CL' else 'FL' end as Entity, 1 as 'ValidaStock',0 as 'StockBreak', '' as DefaultEntity from documents (nolock) join documentsname (nolock) on documents.TransDocumentID=DocumentsName.TransDocumentID where transactionNatureID= 2100 and inactive=0 and DocumentsName.LanguageID='PTG'
+select Description as 'Description', documents.TransDocumentID as Code,0 as orders,0 as sales,1 as purchase,0 as internal,0 as stock,0 as transfer, case when transactionNatureID=1100 then 'CL' else 'FL' end as Entity, 1 as 'ValidaStock',0 as 'StockBreak', '' as DefaultEntity from documents WITH(NOLOCK) join documentsname WITH(NOLOCK) on documents.TransDocumentID=DocumentsName.TransDocumentID where transactionNatureID= 2100 and inactive=0 and DocumentsName.LanguageID='PTG'
 GO
 
 
@@ -77,7 +79,7 @@ CREATE view [dbo].[v_Kapps_Warehouses] as
 select arm.Description as Description, arm.WarehouseID as Code
 , cast(0 as bit) AS UseLocations						-- (1-Sim) (0-Não)
 , '' AS DefaultLocation
-from Warehouse arm (NOLOCK)
+from Warehouse arm WITH(NOLOCK)
 GO
 
 
@@ -105,7 +107,8 @@ case when Item.StockManagement = 1 then 1 else 0 end AS 'MovStock', '' as 'Filte
 , 0 AS StoreInNrDays									-- Nº de dias minimo de validade na receção (excepto se existir regra a contrariar em [Validades mínimas])
 , 0 AS StoreOutNrDays									-- Nº de dias minimo de validade na expedição (excepto se existir regra a contrariar em [Validades mínimas])
 , CAST(0 as int) AS BoxMaxQuantity
-from Item (nolock) join ItemNames (nolock) on Item.ItemID=ItemNames.ItemID where ItemNames.LanguageID='PTG' and Discontinued=0
+from Item WITH(NOLOCK)
+join ItemNames WITH(NOLOCK) on Item.ItemID=ItemNames.ItemID where ItemNames.LanguageID='PTG' and Discontinued=0
 GO
 
 
@@ -119,7 +122,8 @@ art.itemid as code,
 cb.positemid as barcode, 
 cb.UnitOfMeasure as Unit, 
 case when cb.UnitOfMeasure<>art.UnitOfSaleID then art.UnitConversion else 1 end as Quantity
-from POSIdentity cb (nolock) join Item art (nolock) on art.ItemID=cb.ItemID 
+from POSIdentity cb WITH(NOLOCK)
+join Item art WITH(NOLOCK) on art.ItemID=cb.ItemID 
 where art.Discontinued=0
 GO
 
@@ -129,8 +133,8 @@ IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'[dbo].[v_Kapps
 DROP view [dbo].[v_Kapps_Stock]
 GO
 CREATE view [dbo].[v_Kapps_Stock] as 
-select Item.ItemID as Article, st.WarehouseID as Warehouse, CASE WHEN ISNULL(sp.PropertyValue1,'')='' THEN st.PhysicalQty ELSE sp.PhysicalQty END as Stock, '' as Location
-,ISNULL(sp.PropertyValue1,'') as Lote, CASE WHEN ISNULL(sp.PropertyValue1,'')='' THEN st.AvailableQty ELSE sp.PhysicalQty END as AvailableStock
+select Item.ItemID as Article, st.WarehouseID as Warehouse, CASE WHEN COALESCE(sp.PropertyValue1,'')='' THEN st.PhysicalQty ELSE sp.PhysicalQty END as Stock, '' as Location
+,COALESCE(sp.PropertyValue1,'') as Lote, CASE WHEN COALESCE(sp.PropertyValue1,'')='' THEN st.AvailableQty ELSE sp.PhysicalQty END as AvailableStock
 from Stock st WITH(NOLOCK) 
 join Item WITH(NOLOCK) on Item.ItemID=st.ItemID 
 left join StockProperty sp WITH(NOLOCK) on sp.ItemID=st.ItemID and st.WarehouseID=sp.WarehouseID
@@ -143,14 +147,14 @@ IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'[dbo].[v_Kapps
 DROP view [dbo].[v_Kapps_Lots]
 GO
 CREATE view [dbo].[v_Kapps_Lots] as 
-select 
+select distinct
 sp.PropertyValue1 as Lot
 , sp.itemid as Article
-, ISNULL(sp.ExpirationDate, CAST('29991231' as  datetime)) as ExpirationDate
+, COALESCE(sp.ExpirationDate, CAST('29991231' as  datetime)) as ExpirationDate
 , sp.ProductionDate AS ProductionDate
 , CAST(1 as bit) as Actif
-from StockProperty sp (nolock)
-join item (nolock) on sp.ItemID=Item.ItemID
+from StockProperty sp WITH(NOLOCK)
+join item WITH(NOLOCK) on sp.ItemID=Item.ItemID
 where sp.FirstTransDocNumber<>0
 and sp.PropertyValue1<>''
 and sp.PropertyValue2=''
@@ -167,7 +171,8 @@ SELECT
 sp.PropertyValue1 As SerialNumber,	-- Alterar para PropertyValue2, PropertyValue3 conforme a configuração do numero de série
 sp.itemid as Article,
 sp.warehouseid as Warehouse
-FROM StockProperty sp (nolock) join item (nolock) on sp.ItemID=Item.ItemID
+FROM StockProperty sp WITH(NOLOCK)
+join item WITH(NOLOCK) on sp.ItemID=Item.ItemID
 WHERE sp.FirstTransDocNumber<>0
 and sp.PropertyValue1<>''			-- Alterar para PropertyValue2, PropertyValue3 conforme a configuração do numero de série
 and Item.Discontinued=0
@@ -179,7 +184,7 @@ IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'[dbo].[v_Kapps
 DROP view [dbo].[v_Kapps_Families]
 GO
 CREATE view [dbo].[v_Kapps_Families] as 
-select Description as 'Description', FamilyID as 'Code' from Family (nolock)
+select Description as 'Description', FamilyID as 'Code' from Family WITH(NOLOCK)
 GO
 
 
@@ -215,9 +220,10 @@ cab.TransDocNumber as NDC,
 ,cab.PartyID as DeliveryCustomer
 ,UnloadPlaceID as DeliveryCode
 ,'' as Barcode
-from SaleTransaction (nolock) cab join Customer (nolock) c on cab.PartyID=c.PartyID 
-join DocumentsName (nolock) d on cab.TransDocument=d.TransDocumentID
-left join u_Kapps_DossierLin (NOLOCK) on (u_Kapps_DossierLin.StampBo = (cab.TransSerial+'*'+ cab.TransDocument+'*'+cast(YEAR(cab.CreateDate)as varchar(4))+'*'+CAST(cab.TransDocNumber as varchar(12)))) and u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N'
+from SaleTransaction cab WITH(NOLOCK)
+join Customer c WITH(NOLOCK) on cab.PartyID=c.PartyID
+join DocumentsName d WITH(NOLOCK) on cab.TransDocument=d.TransDocumentID
+left join u_Kapps_DossierLin WITH(NOLOCK) on (u_Kapps_DossierLin.StampBo = (cab.TransSerial+'*'+ cab.TransDocument+'*'+cast(YEAR(cab.CreateDate)as varchar(4))+'*'+CAST(cab.TransDocNumber as varchar(12)))) and u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N'
 where cab.TransStatus=0
 and cab.TransactionConverted=0
 and d.LanguageID='PTG'
@@ -237,15 +243,15 @@ LEFT(n.Description,100) as 'Description',
 (lin.DestinationQuantity) as 'QuantitySatisfied',
 ((lin.Quantity) - (lin.DestinationQuantity)) -
 	   (
-	   select isnull(sum(u_Kapps_DossierLin.Qty2),0) 
-       from u_Kapps_DossierLin (NOLOCK) 
+	   select COALESCE(sum(u_Kapps_DossierLin.Qty2),0) 
+       from u_Kapps_DossierLin WITH(NOLOCK) 
        where u_Kapps_DossierLin.Status = 'A' 
        and u_Kapps_DossierLin.Integrada = 'N'      
        and ((cast(lin.TransSerial AS VARCHAR(10)) + '*' + cast(lin.TransDocument AS VARCHAR(50)) + '*' + cast(year(lin.CreateDate) AS VARCHAR(20)) + '*' + CAST(lin.TransDocNumber as varchar(10))) = u_Kapps_DossierLin.Stampbo)
        and ((cast(lin.TransDocNumber as varchar(10))+'*' + cast (lin.LineItemID as varchar(15))+'_'+cast (lin.LineItemSubID as varchar(15))) = u_Kapps_DossierLin.Stampbi)
        ) as 'QuantityPending',
-	   (select isnull(sum(u_Kapps_DossierLin.Qty2),0)
-       from u_Kapps_DossierLin (NOLOCK) 
+	   (select COALESCE(sum(u_Kapps_DossierLin.Qty2),0)
+       from u_Kapps_DossierLin WITH(NOLOCK) 
        where u_Kapps_DossierLin.Status = 'A' 
        and u_Kapps_DossierLin.Integrada = 'N' 
        and ((cast(lin.TransSerial AS VARCHAR(10)) + '*' + cast(lin.TransDocument AS VARCHAR(50)) + '*' + cast(year(lin.CreateDate) AS VARCHAR(20)) + '*' + CAST(lin.TransDocNumber as varchar(10))) = u_Kapps_DossierLin.StampBo)
@@ -273,12 +279,13 @@ lin.TransDocument as TPD,
 lin.TransDocNumber as NDC
 , '' as 'Filter1','' as 'Filter2','' as 'Filter3','' as 'Filter4','' as 'Filter5'
 , '' AS Location
-, ISNULL((SELECT PropertyValue1 FROM TransactionPropDetails det WITH(NOLOCK) WHERE det.TransSerial=lin.TransSerial and det.TransDocument= lin.TransDocument and det.TransDocNumber=lin.TransDocNumber and det.LineItemID=lin.LineItemID and det.LineItemSubID=lin.LineItemSubID),'') AS Lot
+, COALESCE((SELECT PropertyValue1 FROM TransactionPropDetails det WITH(NOLOCK) WHERE det.TransSerial=lin.TransSerial and det.TransDocument= lin.TransDocument and det.TransDocNumber=lin.TransDocNumber and det.LineItemID=lin.LineItemID and det.LineItemSubID=lin.LineItemSubID),'') AS Lot
 , '' as PalletType
 , 0 as PalletMaxUnits
-from saletransactiondetails lin WITH(nolock) join Item art WITH(nolock) on lin.ItemID=art.ItemID
-join ItemNames n with(nolock) on art.ItemID=n.ItemID
---join SaleTransaction (nolock) cab on lin.TransDocument=cab.TransDocument and lin.TransSerial=cab.TransSerial and lin.TransDocNumber=cab.TransDocNumber
+from saletransactiondetails lin WITH(NOLOCK)
+join Item art WITH(NOLOCK) on lin.ItemID=art.ItemID
+join ItemNames n WITH(NOLOCK) on art.ItemID=n.ItemID
+--join SaleTransaction cab WITH(NOLOCK) on lin.TransDocument=cab.TransDocument and lin.TransSerial=cab.TransSerial and lin.TransDocNumber=cab.TransDocNumber
 where n.LanguageID='PTG'
 GO
 
@@ -313,9 +320,10 @@ cab.TransDocNumber as NDC,
 ,cab.PartyID as DeliveryCustomer
 ,UnloadPlaceID as DeliveryCode
 ,'' as Barcode
-from SaleTransaction (nolock) cab join Customer (nolock) c on cab.PartyID=c.PartyID 
-join DocumentsName (nolock) d on cab.TransDocument=d.TransDocumentID
-left join u_Kapps_DossierLin (NOLOCK) on (u_Kapps_DossierLin.StampBo = (cab.TransSerial+'*'+ cab.TransDocument+'*'+cast(YEAR(cab.CreateDate)as varchar(4))+'*'+CAST(cab.TransDocNumber as varchar(12)))) and u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N'
+from SaleTransaction cab WITH(NOLOCK)
+join Customer c WITH(NOLOCK) on cab.PartyID=c.PartyID
+join DocumentsName d WITH(NOLOCK) on cab.TransDocument=d.TransDocumentID
+left join u_Kapps_DossierLin WITH(NOLOCK) on (u_Kapps_DossierLin.StampBo = (cab.TransSerial+'*'+ cab.TransDocument+'*'+cast(YEAR(cab.CreateDate)as varchar(4))+'*'+CAST(cab.TransDocNumber as varchar(12)))) and u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N'
 where cab.TransStatus=0
 and cab.TransactionConverted=0
 and d.LanguageID='PTG'
@@ -335,16 +343,16 @@ LEFT(n.Description,100) as 'Description',
 (lin.DestinationQuantity) as 'QuantitySatisfied',
 ((lin.Quantity) - (lin.DestinationQuantity)) -
 		(
-		select isnull(sum(u_Kapps_DossierLin.Qty2),0) 
-		from u_Kapps_DossierLin (NOLOCK) 
+		select COALESCE(sum(u_Kapps_DossierLin.Qty2),0) 
+		from u_Kapps_DossierLin WITH(NOLOCK) 
 		where u_Kapps_DossierLin.Status = 'A' 
 		and u_Kapps_DossierLin.Integrada = 'N' 
 		and ((cast(lin.TransSerial AS VARCHAR(10)) + '*' + cast(lin.TransDocument AS VARCHAR(50)) + '*' + cast(year(lin.CreateDate) AS VARCHAR(20)) + '*' + CAST(lin.TransDocNumber as varchar(10))) = u_Kapps_DossierLin.Stampbo)
 		and ((cast(lin.TransDocNumber as varchar(10))+'*' + cast (lin.LineItemID as varchar(15))+'_'+cast (lin.LineItemSubID as varchar(15))) = u_Kapps_DossierLin.Stampbi)
 		) as 'QuantityPending',
 
-		(select isnull(sum(u_Kapps_DossierLin.Qty2),0)
-		from u_Kapps_DossierLin (NOLOCK) 
+		(select COALESCE(sum(u_Kapps_DossierLin.Qty2),0)
+		from u_Kapps_DossierLin WITH(NOLOCK) 
 		where u_Kapps_DossierLin.Status = 'A' 
 		and u_Kapps_DossierLin.Integrada = 'N' 
 		and ((cast(lin.TransSerial AS VARCHAR(10)) + '*' + cast(lin.TransDocument AS VARCHAR(50)) + '*' + cast(year(lin.CreateDate) AS VARCHAR(20)) + '*' + CAST(lin.TransDocNumber as varchar(10))) = u_Kapps_DossierLin.Stampbo)
@@ -372,12 +380,13 @@ lin.TransDocument as TPD,
 lin.TransDocNumber as NDC
 , '' as 'Filter1','' as 'Filter2','' as 'Filter3','' as 'Filter4','' as 'Filter5'
 , '' AS Location
-, ISNULL((SELECT PropertyValue1 FROM TransactionPropDetails det WITH(NOLOCK) WHERE det.TransSerial=lin.TransSerial and det.TransDocument= lin.TransDocument and det.TransDocNumber=lin.TransDocNumber and det.LineItemID=lin.LineItemID and det.LineItemSubID=lin.LineItemSubID),'') AS Lot
+, COALESCE((SELECT PropertyValue1 FROM TransactionPropDetails det WITH(NOLOCK) WHERE det.TransSerial=lin.TransSerial and det.TransDocument= lin.TransDocument and det.TransDocNumber=lin.TransDocNumber and det.LineItemID=lin.LineItemID and det.LineItemSubID=lin.LineItemSubID),'') AS Lot
 , '' as PalletType
 , 0 as PalletMaxUnits
-from saletransactiondetails (nolock) lin join Item (nolock) art on lin.ItemID=art.ItemID
-join ItemNames (nolock) n on art.ItemID=n.ItemID
---join SaleTransaction (nolock) cab on lin.TransDocument=cab.TransDocument and lin.TransSerial=cab.TransSerial and lin.TransDocNumber=cab.TransDocNumber
+from saletransactiondetails lin WITH(NOLOCK)
+join Item art WITH(NOLOCK) on lin.ItemID=art.ItemID
+join ItemNames n WITH(NOLOCK) on art.ItemID=n.ItemID
+--join SaleTransaction WITH(NOLOCK) cab on lin.TransDocument=cab.TransDocument and lin.TransSerial=cab.TransSerial and lin.TransDocNumber=cab.TransDocNumber
 where n.LanguageID='PTG'
 GO
 
@@ -412,8 +421,9 @@ cab.TransDocNumber as NDC,
 '' as 'Filter1','' as 'Filter2','' as 'Filter3','' as 'Filter4','' as 'Filter5',
 '' as ExternalDoc
 ,'' as Barcode
-from BuyTransaction (nolock) cab join Supplier (nolock) f on cab.PartyID=f.SupplierID
-join DocumentsName (nolock) dn on dn.TransDocumentID=cab.TransDocument
+from BuyTransaction cab WITH(NOLOCK)
+join Supplier f WITH(NOLOCK)on cab.PartyID=f.SupplierID
+join DocumentsName dn WITH(NOLOCK) on dn.TransDocumentID=cab.TransDocument
 where cab.TransStatus=0
 and cab.TransactionConverted=0
 and dn.LanguageID='PTG'
@@ -433,15 +443,15 @@ LEFT(n.Description,100) as 'Description',
 (lin.DestinationQuantity) as 'QuantitySatisfied',
 ((lin.Quantity) - (lin.DestinationQuantity)) -
 		(
-		select isnull(sum(u_Kapps_DossierLin.Qty2),0) 
-		from u_Kapps_DossierLin (NOLOCK) 
+		select COALESCE(sum(u_Kapps_DossierLin.Qty2),0) 
+		from u_Kapps_DossierLin WITH(NOLOCK) 
 		where u_Kapps_DossierLin.Status = 'A' 
 		and u_Kapps_DossierLin.Integrada = 'N' 
 		and ((cast(lin.TransSerial AS VARCHAR(10)) + '*' + cast(lin.TransDocument AS VARCHAR(50)) + '*' + cast(year(lin.CreateDate) AS VARCHAR(20)) + '*' + CAST(lin.TransDocNumber as varchar(10))) = u_Kapps_DossierLin.Stampbo)
 		and ((cast(lin.TransDocNumber as varchar(10))+'*' + cast (lin.LineItemID as varchar(15))+'_'+cast (lin.LineItemSubID as varchar(15))) = u_Kapps_DossierLin.Stampbi)
 		) as 'QuantityPending',
-		(select isnull(sum(u_Kapps_DossierLin.Qty2),0)
-		from u_Kapps_DossierLin (NOLOCK) 
+		(select COALESCE(sum(u_Kapps_DossierLin.Qty2),0)
+		from u_Kapps_DossierLin WITH(NOLOCK) 
 		where u_Kapps_DossierLin.Status = 'A' 
 		and u_Kapps_DossierLin.Integrada = 'N' 
 		and ((cast(lin.TransSerial AS VARCHAR(10)) + '*' + cast(lin.TransDocument AS VARCHAR(50)) + '*' + cast(year(lin.CreateDate) AS VARCHAR(20)) + '*' + CAST(lin.TransDocNumber as varchar(10))) = u_Kapps_DossierLin.Stampbo)
@@ -469,10 +479,11 @@ lin.TransDocument as TPD,
 lin.TransDocNumber as NDC
 , '' as 'Filter1','' as 'Filter2','' as 'Filter3','' as 'Filter4','' as 'Filter5'
 , '' AS Location
-, ISNULL((SELECT PropertyValue1 FROM TransactionPropDetails det WITH(NOLOCK) WHERE det.TransSerial=lin.TransSerial and det.TransDocument= lin.TransDocument and det.TransDocNumber=lin.TransDocNumber and det.LineItemID=lin.LineItemID and det.LineItemSubID=lin.LineItemSubID),'') AS Lot
-from buytransactiondetails lin with(nolock) join Item art with(nolock) on lin.ItemID=art.ItemID
-join ItemNames n with(nolock) on art.ItemID=n.ItemID
---join SaleTransaction (nolock) cab on lin.TransDocument=cab.TransDocument and lin.TransSerial=cab.TransSerial and lin.TransDocNumber=cab.TransDocNumber
+, COALESCE((SELECT PropertyValue1 FROM TransactionPropDetails det WITH(NOLOCK) WHERE det.TransSerial=lin.TransSerial and det.TransDocument= lin.TransDocument and det.TransDocNumber=lin.TransDocNumber and det.LineItemID=lin.LineItemID and det.LineItemSubID=lin.LineItemSubID),'') AS Lot
+from buytransactiondetails lin WITH(NOLOCK)
+join Item art WITH(NOLOCK) on lin.ItemID=art.ItemID
+join ItemNames n WITH(NOLOCK) on art.ItemID=n.ItemID
+--join SaleTransaction cab WITH(NOLOCK) on lin.TransDocument=cab.TransDocument and lin.TransSerial=cab.TransSerial and lin.TransDocNumber=cab.TransDocNumber
 where n.LanguageID='PTG'
 GO
 
@@ -485,13 +496,13 @@ CREATE view [dbo].[v_Kapps_Units] as
 select art.ItemID as 'Code',
 art.UnitOfSaleID as 'Unit',
 1 as 'Factor' 
-from Item (nolock) art
+from Item art WITH(NOLOCK)
 where art.Discontinued=0
 union all
 select art.ItemID as 'Code',
 art.AlternativeUnitOfStock as 'Unit',
 art.unitConversion as 'Factor' 
-from Item (nolock) art
+from Item art WITH(NOLOCK)
 where art.Discontinued=0
 and art.unitofSaleID<>art.AlternativeUnitOfStock
 GO
@@ -569,7 +580,7 @@ stk.Name as 'DocumentName',								-- Descrição da contagem
 '' as ZoneLocation,
 '' as Location,
 stk.Stamp as InternalStampDoc
-FROM u_Kapps_StockDocs stk
+FROM u_Kapps_StockDocs stk WITH(NOLOCK)
 WHERE stk.Syncr<>'S'
 GO
 
@@ -652,7 +663,7 @@ DROP view [dbo].[v_Kapps_StockBreakReasons]
 GO
 CREATE view [dbo].[v_Kapps_StockBreakReasons] as 
 select ReasonID, ReasonDescription, ReasonType
-FROM u_Kapps_Reasons
+FROM u_Kapps_Reasons WITH(NOLOCK)
 GO
 
 
@@ -718,14 +729,21 @@ select h.SSCC as HeaderSSCC
 , lin.LinUserField8
 , lin.LinUserField9
 , lin.LinUserField10
+, lin.LinUserField11
+, lin.LinUserField12
+, lin.LinUserField13
+, lin.LinUserField14
+, lin.LinUserField15
 , d.Location
 , h.CurrentWarehouse
 , h.CurrentLocation
 , h.PackStatus
 , h.PackType
-FROM u_Kapps_PackingDetails d
-LEFT JOIN u_Kapps_PackingHeader h on h.PackId=d.PackID
-LEFT JOIN u_Kapps_DossierLin lin on lin.StampLin=d.StampLin
+, h.CustomerId
+, h.CustomerName
+FROM u_Kapps_PackingDetails d WITH(NOLOCK)
+LEFT JOIN u_Kapps_PackingHeader h WITH(NOLOCK) on h.PackId=d.PackID
+LEFT JOIN u_Kapps_DossierLin lin WITH(NOLOCK) on lin.StampLin=d.StampLin
 WHERE d.SSCC<>'' or h.SSCC<>''
 GO
 
@@ -764,9 +782,10 @@ cab.TransDocNumber as NDC,
 ,'' as TransitWarehouse
 ,'' as DestinationWarehouse
 ,'' as Barcode
-from SaleTransaction (nolock) cab join Customer (nolock) c on cab.PartyID=c.PartyID 
-join DocumentsName (nolock) d on cab.TransDocument=d.TransDocumentID
-left join u_Kapps_DossierLin (NOLOCK) on (u_Kapps_DossierLin.StampBo = (cab.TransSerial+'*'+ cab.TransDocument+'*'+cast(YEAR(cab.CreateDate)as varchar(4))+'*'+CAST(cab.TransDocNumber as varchar(12)))) and u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N'
+from SaleTransaction cab WITH(NOLOCK)
+join Customer c WITH(NOLOCK) on cab.PartyID=c.PartyID 
+join DocumentsName d WITH(NOLOCK) on cab.TransDocument=d.TransDocumentID
+left join u_Kapps_DossierLin WITH(NOLOCK) on (u_Kapps_DossierLin.StampBo = (cab.TransSerial+'*'+ cab.TransDocument+'*'+cast(YEAR(cab.CreateDate)as varchar(4))+'*'+CAST(cab.TransDocNumber as varchar(12)))) and u_Kapps_DossierLin.Status = 'A' and u_Kapps_DossierLin.Integrada = 'N'
 where cab.TransStatus=0
 and cab.TransactionConverted=0
 and d.LanguageID='PTG'
@@ -786,15 +805,15 @@ LEFT(n.Description,100) as 'Description',
 (lin.DestinationQuantity) as 'QuantitySatisfied',
 ((lin.Quantity) - (lin.DestinationQuantity)) -
 	   (
-	   select isnull(sum(u_Kapps_DossierLin.Qty2),0) 
-       from u_Kapps_DossierLin (NOLOCK) 
+	   select COALESCE(sum(u_Kapps_DossierLin.Qty2),0) 
+       from u_Kapps_DossierLin WITH(NOLOCK) 
        where u_Kapps_DossierLin.Status = 'A' 
        and u_Kapps_DossierLin.Integrada = 'N'      
        and ((cast(lin.TransSerial AS VARCHAR(10)) + '*' + cast(lin.TransDocument AS VARCHAR(50)) + '*' + cast(year(lin.CreateDate) AS VARCHAR(20)) + '*' + CAST(lin.TransDocNumber as varchar(10))) = u_Kapps_DossierLin.Stampbo)
        and ((cast(lin.TransDocNumber as varchar(10))+'*' + cast (lin.LineItemID as varchar(15))+'_'+cast (lin.LineItemSubID as varchar(15))) = u_Kapps_DossierLin.Stampbi)
        ) as 'QuantityPending',
-	   (select isnull(sum(u_Kapps_DossierLin.Qty2),0)
-       from u_Kapps_DossierLin (NOLOCK) 
+	   (select COALESCE(sum(u_Kapps_DossierLin.Qty2),0)
+       from u_Kapps_DossierLin WITH(NOLOCK) 
        where u_Kapps_DossierLin.Status = 'A' 
        and u_Kapps_DossierLin.Integrada = 'N' 
        and ((cast(lin.TransSerial AS VARCHAR(10)) + '*' + cast(lin.TransDocument AS VARCHAR(50)) + '*' + cast(year(lin.CreateDate) AS VARCHAR(20)) + '*' + CAST(lin.TransDocNumber as varchar(10))) = u_Kapps_DossierLin.StampBo)
@@ -822,12 +841,13 @@ lin.TransDocument as TPD,
 lin.TransDocNumber as NDC
 , '' as 'Filter1','' as 'Filter2','' as 'Filter3','' as 'Filter4','' as 'Filter5'
 , '' AS Location
-, ISNULL((SELECT PropertyValue1 FROM TransactionPropDetails det WITH(NOLOCK) WHERE det.TransSerial=lin.TransSerial and det.TransDocument= lin.TransDocument and det.TransDocNumber=lin.TransDocNumber and det.LineItemID=lin.LineItemID and det.LineItemSubID=lin.LineItemSubID),'') AS Lot
+, COALESCE((SELECT PropertyValue1 FROM TransactionPropDetails det WITH(NOLOCK) WHERE det.TransSerial=lin.TransSerial and det.TransDocument= lin.TransDocument and det.TransDocNumber=lin.TransDocNumber and det.LineItemID=lin.LineItemID and det.LineItemSubID=lin.LineItemSubID),'') AS Lot
 , '' as PalletType
 , 0 as PalletMaxUnits
-from saletransactiondetails lin WITH(nolock) join Item art WITH(nolock) on lin.ItemID=art.ItemID
-join ItemNames n with(nolock) on art.ItemID=n.ItemID
---join SaleTransaction (nolock) cab on lin.TransDocument=cab.TransDocument and lin.TransSerial=cab.TransSerial and lin.TransDocNumber=cab.TransDocNumber
+from saletransactiondetails lin WITH(NOLOCK)
+join Item art WITH(NOLOCK) on lin.ItemID=art.ItemID
+join ItemNames n WITH(NOLOCK) on art.ItemID=n.ItemID
+--join SaleTransaction cab (nolock) on lin.TransDocument=cab.TransDocument and lin.TransSerial=cab.TransSerial and lin.TransDocNumber=cab.TransDocNumber
 where n.LanguageID='PTG'
 GO
 

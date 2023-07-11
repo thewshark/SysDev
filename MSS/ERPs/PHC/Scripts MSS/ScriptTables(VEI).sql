@@ -1,0 +1,83 @@
+-- Creating the MSVIS table
+CREATE TABLE MSVEI(
+	VEISTP varchar(120) NULL,
+	VEIVEN varchar(120) NULL,
+	VEICOD varchar(120) NULL,
+	VEICEN varchar(120) NULL,
+	VEIDTI varchar(16) NULL,
+	VEIHRI varchar(12) NULL,
+	VEIKMI varchar(60) NULL,
+	VEIVI1 varchar(400) NULL,
+	VEIVI2 varchar(400) NULL,
+	VEIVI3 varchar(400) NULL,
+	VEIDTF varchar(16) NULL,
+	VEIHRF varchar(12) NULL,
+	VEIKMF varchar(60) NULL,
+	VEIVF1 varchar(400) NULL,
+	VEIVF2 varchar(400) NULL,
+	VEIVF3 varchar(400) NULL,
+	VEILUI varchar(100) NULL,
+	VEILSI varchar(120) NULL,
+	VEILUF varchar(100) NULL,
+	VEILSF varchar(120) NULL,
+	VEIVIA varchar(120) NULL,
+	VEIDFG varchar(16) NULL,
+	VEIHFG varchar(12) NULL,
+	VEIIG1 varchar(60) NULL,
+	VEIIG2 varchar(60) NULL,
+	VEIIG3 varchar(60) NULL,
+	VEIIGT varchar(1) NULL,
+	VEIIGS varchar(28) NULL,
+	VEIFG1 varchar(60) NULL,
+	VEIFG2 varchar(60) NULL,
+	VEIFG3 varchar(60) NULL,
+	VEIFGT varchar(1) NULL,
+	VEIFGS varchar(28) NULL,
+	VEIDIA varchar(16) NULL,
+	VEIHIA varchar(12) NULL,
+	VEICTS varchar(1) NULL,
+	VEICAG varchar(160) NULL,
+	VEICCL varchar(60) NULL,
+	VEICLC varchar(80) NULL,
+	VEICDT varchar(16) NULL,
+	VEICHR varchar(12) NULL,
+	VEICG1 varchar(60) NULL,
+	VEICG2 varchar(60) NULL,
+	VEICG3 varchar(60) NULL,
+	VEICGT varchar(1) NULL,
+	VEICGS varchar(28) NULL,
+	VEIKMP decimal(18, 6) NULL,
+	VEITMP decimal(18, 6) NULL,
+	VEICIN varchar(1) NULL,
+	VEIACL varchar(4000) NULL,
+    VEIVND VARCHAR(50)  NULL ,
+	VEISYNCR VARCHAR(1) NULL ,
+	VEITIPO VARCHAR(1) NULL,
+	VEITERM BIGINT NULL
+	
+);
+CREATE UNIQUE INDEX WDIDX_MSVEI_VEIK01 ON MSVEI (VEISTP,VEIVND);
+CREATE INDEX WDIDX_MSVEI_VEIVND ON MSVEI (VEIVND);
+CREATE INDEX WDIDX_MSVEI_VEISYN ON MSVEI (VEISYNCR);
+GO
+
+--********************* TR_MSSVIS_CHECK_DUPLICATE ************************************
+CREATE TRIGGER TR_MSSVEI_CHECK_DUPLICATE ON MSVEI INSTEAD OF INSERT
+AS 
+BEGIN
+	SET NOCOUNT ON;
+
+	DECLARE @Stamp VARCHAR(120)
+	DECLARE @Vnd VARCHAR(50)
+	
+	DECLARE @DiaCount INT
+
+	SELECT @Stamp = VEISTP, @Vnd = VEIVND FROM INSERTED
+	SELECT @DiaCount = Count(*) FROM MSVEI(nolock) WHERE VEISTP = @Stamp AND VEIVND = @Vnd
+	IF @DiaCount > 0
+		DELETE FROM MSVEI WHERE VEISTP = @Stamp AND VEIVND = @Vnd
+
+	INSERT INTO MSVEI SELECT * FROM INSERTED
+END
+GO
+--********************* // TR_MSSVIS_CHECK_DUPLICATE ************************************

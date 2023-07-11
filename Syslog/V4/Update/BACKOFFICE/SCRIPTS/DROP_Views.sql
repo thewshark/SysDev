@@ -124,3 +124,15 @@ GO
 IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'v_Kapps_Stock_Status'))
 DROP view v_Kapps_Stock_Status
 GO
+
+IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'v_Kapps_ProductsStruture'))
+DROP view v_Kapps_ProductsStruture
+GO
+
+IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'v_Kapps_BOM_Header'))
+DROP view v_Kapps_BOM_Header
+GO
+
+IF  EXISTS (SELECT * FROM sys.views WHERE object_id = OBJECT_ID(N'v_Kapps_BOM_Items'))
+DROP view v_Kapps_BOM_Items
+GO

@@ -12,26 +12,27 @@ BEGIN
 	DECLARE @DatabaseVersion INT
 	DECLARE @DatabaseVersionScript INT
 	DECLARE @ParametersVersion INT
+	DECLARE @ThisScriptVersion INT
 
 	DECLARE @estado varchar(5)
-    DECLARE @descerro varchar(255)
+	DECLARE @descerro varchar(255)
 
 	BEGIN TRY
 	BEGIN TRANSACTION
 
 	SET @estado = 'ERROR'
-    SET @descerro = 'Ocorreu um erro ao atualizar a base de dados. '
+	SET @descerro = 'Ocorreu um erro ao atualizar a base de dados. '
 	SET @DatabaseVersion = 0
 	SET @ParametersVersion = 0
 
 	--Vai buscar a versão da base de dados e compara com a versão da base de dados desta versão do backoffice
 	IF EXISTS(SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'u_Kapps_Parameters') AND type in (N'U'))
 	BEGIN
-		SELECT @DatabaseVersion = ISNULL(ParameterValue, 0) FROM u_Kapps_Parameters (NOLOCK) WHERE (UPPER(AppCode) = 'AP0002' OR UPPER(AppCode)='SYT') AND ParameterGroup='MAIN' AND UPPER(ParameterID) = UPPER('DATABASEVERSION')
-		SELECT @ParametersVersion = ISNULL(ParameterValue, 0) FROM u_Kapps_Parameters (NOLOCK) WHERE (UPPER(AppCode) = 'AP0002' OR UPPER(AppCode)='SYT') AND ParameterGroup='MAIN' AND UPPER(ParameterID) = UPPER('PARAMETERSVERSION')
+		SELECT @DatabaseVersion = COALESCE(ParameterValue, 0) FROM u_Kapps_Parameters (NOLOCK) WHERE (UPPER(AppCode) = 'AP0002' OR UPPER(AppCode)='SYT') AND ParameterGroup='MAIN' AND UPPER(ParameterID) = UPPER('DATABASEVERSION')
+		SELECT @ParametersVersion = COALESCE(ParameterValue, 0) FROM u_Kapps_Parameters (NOLOCK) WHERE (UPPER(AppCode) = 'AP0002' OR UPPER(AppCode)='SYT') AND ParameterGroup='MAIN' AND UPPER(ParameterID) = UPPER('PARAMETERSVERSION')
 	END
 	ELSE
-		SELECT @DatabaseVersion = ISNULL(ParameterValue, 0) FROM Kapps_Parameters (NOLOCK) WHERE UPPER(AppCode) = 'AP0002' AND UPPER(ParameterID) = UPPER('DATABASEVERSION')	
+		SELECT @DatabaseVersion = COALESCE(ParameterValue, 0) FROM Kapps_Parameters (NOLOCK) WHERE UPPER(AppCode) = 'AP0002' AND UPPER(ParameterID) = UPPER('DATABASEVERSION')	
 
 	IF ((@DatabaseVersion = null) OR (@DatabaseVersion <= 0))
 	BEGIN
@@ -874,10 +875,345 @@ BEGIN
 			ALTER TABLE u_Kapps_DossierLin ADD CONSTRAINT DF_u_Kapps_DossierLin_LinUserField3  DEFAULT ('') FOR LinUserField3;
 		END
 
+		IF (@DatabaseVersion < 111)
+		BEGIN
+			CREATE TABLE u_Kapps_InquiryAnswersStampLin(
+				id int IDENTITY(1,1) NOT NULL,
+				InquiryAnswersHeaderUniqueID nvarchar(100) NULL,
+				StampLin nvarchar(50) NULL
+			);
+
+			ALTER TABLE u_Kapps_InquiryAnswersHeader ADD ActiveWhen int NOT NULL CONSTRAINT DF_u_Kapps_InquiryAnswersHeader_ActiveWhen DEFAULT (0);
+			ALTER TABLE u_Kapps_InquiryAnswersHeader ADD Ref nvarchar(60) NOT NULL CONSTRAINT DF_u_Kapps_InquiryAnswersHeader_Ref DEFAULT ('');
+			ALTER TABLE u_Kapps_InquirySchedule ADD Ref nvarchar(60) NOT NULL CONSTRAINT DF_u_Kapps_InquirySchedule_Ref DEFAULT ('');
+			ALTER TABLE u_Kapps_InquirySchedule ADD Family nvarchar(50) NOT NULL CONSTRAINT DF_u_Kapps_InquirySchedule_Family DEFAULT ('');
+		END
+
+		IF (@DatabaseVersion < 112)
+		BEGIN
+			CREATE TABLE u_Kapps_LogSP(
+				LogDate nvarchar(8) NOT NULL,
+				LogTime nvarchar(6) NOT NULL,
+				LogErrorID int NOT NULL,
+				LogDescription varchar(255) NOT NULL,
+				LogSP varchar(100) NOT NULL,
+				LogParameters varchar(255) NOT NULL
+			) ON [PRIMARY];
+
+			ALTER TABLE u_Kapps_LogSP ADD CONSTRAINT DF_u_Kapps_LogSP_LogDate DEFAULT ('') FOR LogDate;
+			ALTER TABLE u_Kapps_LogSP ADD CONSTRAINT DF_u_Kapps_LogSP_LogTime DEFAULT ('') FOR LogTime;
+			ALTER TABLE u_Kapps_LogSP ADD CONSTRAINT DF_u_Kapps_LogSP_LogErrorID DEFAULT ((0)) FOR LogErrorID;
+			ALTER TABLE u_Kapps_LogSP ADD CONSTRAINT DF_u_Kapps_LogSP_LogDescription DEFAULT ('') FOR LogDescription;
+			ALTER TABLE u_Kapps_LogSP ADD CONSTRAINT DF_u_Kapps_LogSP_LogSP DEFAULT ('') FOR LogSP;
+			ALTER TABLE u_Kapps_LogSP ADD CONSTRAINT DF_u_Kapps_LogSP_LogParameters DEFAULT ('') FOR LogParameters;
+		END
+
+		IF (@DatabaseVersion < 113)
+		BEGIN
+			CREATE TABLE u_Kapps_NumeratorsSet(
+				[AutoId] [int] IDENTITY(1,1) NOT NULL,
+				[NumeratorId] [varchar](50) NOT NULL,
+				[Description] [varchar](200) NOT NULL,
+				[NumeratorSeries] [varchar](50) NOT NULL,
+				[LastNumber] [numeric](18, 0) NOT NULL,
+				[IsInactive] [tinyint] NOT NULL,
+				[Locked] [tinyint] NOT NULL,
+				[LockedUser] [varchar](20) NOT NULL,
+				[LockedDate] [varchar](8) NOT NULL,
+				[LockedTime] [varchar](6) NOT NULL,
+				[Notes] [varchar](250) NOT NULL,
+				[NumeratorStamp] [varchar](100) NOT NULL,
+				[CreationNetIPAddress] [varchar](50) NOT NULL,
+				[CreationNetMachineName] [varchar](50) NOT NULL,
+				[CreationProcess] [varchar](50) NOT NULL,
+				[CreationUser] [varchar](20) NOT NULL,
+				[CreationDate] [varchar](8) NOT NULL,
+				[CreationTime] [varchar](6) NOT NULL,
+				[ModificationNetIPAddress] [varchar](50) NOT NULL,
+				[ModificationNetMachineName] [varchar](50) NOT NULL,
+				[ModificationProcess] [varchar](50) NOT NULL,
+				[ModificationUser] [varchar](20) NOT NULL,
+				[ModificationDate] [varchar](8) NOT NULL,
+				[ModificationTime] [varchar](6) NOT NULL,
+				 CONSTRAINT [PK_u_Kapps_NumeratorsSet] PRIMARY KEY CLUSTERED 
+				(
+					[AutoId] ASC
+				) ON [PRIMARY]
+				) ON [PRIMARY];
+				
+			ALTER TABLE [dbo].[u_Kapps_NumeratorsSet] ADD  CONSTRAINT [DF_u_Kapps_NumeratorsSet_NumeratorId]  DEFAULT ('') FOR [NumeratorId];
+			ALTER TABLE [dbo].[u_Kapps_NumeratorsSet] ADD  CONSTRAINT [DF_u_Kapps_NumeratorsSet_Description]  DEFAULT ('') FOR [Description];
+			ALTER TABLE [dbo].[u_Kapps_NumeratorsSet] ADD  CONSTRAINT [DF_u_Kapps_NumeratorsSet_NumeratorSeries]  DEFAULT ('') FOR [NumeratorSeries];
+			ALTER TABLE [dbo].[u_Kapps_NumeratorsSet] ADD  CONSTRAINT [DF_u_Kapps_NumeratorsSet_LastNumber]  DEFAULT ((0)) FOR [LastNumber];
+			ALTER TABLE [dbo].[u_Kapps_NumeratorsSet] ADD  CONSTRAINT [DF_u_Kapps_NumeratorsSet_IsInactive]  DEFAULT ((0)) FOR [IsInactive];
+			ALTER TABLE [dbo].[u_Kapps_NumeratorsSet] ADD  CONSTRAINT [DF_u_Kapps_NumeratorsSet_Locked]  DEFAULT ((0)) FOR [Locked];
+			ALTER TABLE [dbo].[u_Kapps_NumeratorsSet] ADD  CONSTRAINT [DF_u_Kapps_NumeratorsSet_LockedUser]  DEFAULT ('') FOR [LockedUser];
+			ALTER TABLE [dbo].[u_Kapps_NumeratorsSet] ADD  CONSTRAINT [DF_u_Kapps_NumeratorsSet_LockedDate]  DEFAULT ('') FOR [LockedDate];
+			ALTER TABLE [dbo].[u_Kapps_NumeratorsSet] ADD  CONSTRAINT [DF_u_Kapps_NumeratorsSet_LockedTime]  DEFAULT ('') FOR [LockedTime];
+			ALTER TABLE [dbo].[u_Kapps_NumeratorsSet] ADD  CONSTRAINT [DF_u_Kapps_NumeratorsSet_Notes]  DEFAULT ('') FOR [Notes];
+			ALTER TABLE [dbo].[u_Kapps_NumeratorsSet] ADD  CONSTRAINT [DF_u_Kapps_NumeratorsSet_NumeratorStamp]  DEFAULT ('') FOR [NumeratorStamp];
+			ALTER TABLE [dbo].[u_Kapps_NumeratorsSet] ADD  CONSTRAINT [DF_u_Kapps_NumeratorsSet_CreationNetIPAddress]  DEFAULT ('') FOR [CreationNetIPAddress];
+			ALTER TABLE [dbo].[u_Kapps_NumeratorsSet] ADD  CONSTRAINT [DF_u_Kapps_NumeratorsSet_CreationNetMachineName]  DEFAULT ('') FOR [CreationNetMachineName];
+			ALTER TABLE [dbo].[u_Kapps_NumeratorsSet] ADD  CONSTRAINT [DF_u_Kapps_NumeratorsSet_CreationProcess]  DEFAULT ('') FOR [CreationProcess];
+			ALTER TABLE [dbo].[u_Kapps_NumeratorsSet] ADD  CONSTRAINT [DF_u_Kapps_NumeratorsSet_CreationUser]  DEFAULT ('') FOR [CreationUser];
+			ALTER TABLE [dbo].[u_Kapps_NumeratorsSet] ADD  CONSTRAINT [DF_u_Kapps_NumeratorsSet_CreationDate]  DEFAULT ('') FOR [CreationDate];
+			ALTER TABLE [dbo].[u_Kapps_NumeratorsSet] ADD  CONSTRAINT [DF_u_Kapps_NumeratorsSet_CreationTime]  DEFAULT ('') FOR [CreationTime];
+			ALTER TABLE [dbo].[u_Kapps_NumeratorsSet] ADD  CONSTRAINT [DF_u_Kapps_NumeratorsSet_ModificationNetIPAddress]  DEFAULT ('') FOR [ModificationNetIPAddress];
+			ALTER TABLE [dbo].[u_Kapps_NumeratorsSet] ADD  CONSTRAINT [DF_u_Kapps_NumeratorsSet_ModificationNetMachineName]  DEFAULT ('') FOR [ModificationNetMachineName];
+			ALTER TABLE [dbo].[u_Kapps_NumeratorsSet] ADD  CONSTRAINT [DF_u_Kapps_NumeratorsSet_ModificationProcess]  DEFAULT ('') FOR [ModificationProcess];
+			ALTER TABLE [dbo].[u_Kapps_NumeratorsSet] ADD  CONSTRAINT [DF_u_Kapps_NumeratorsSet_ModificationUser]  DEFAULT ('') FOR [ModificationUser];
+			ALTER TABLE [dbo].[u_Kapps_NumeratorsSet] ADD  CONSTRAINT [DF_u_Kapps_NumeratorsSet_ModificationDate]  DEFAULT ('') FOR [ModificationDate];
+			ALTER TABLE [dbo].[u_Kapps_NumeratorsSet] ADD  CONSTRAINT [DF_u_Kapps_NumeratorsSet_ModificationTime]  DEFAULT ('') FOR [ModificationTime];
+			
+			
+			CREATE TABLE u_Kapps_tBOM_Header (
+				[AutoId] [int] IDENTITY(1,1) NOT NULL,
+				[BOMKey] [varchar](25) NOT NULL,
+				[Number] [numeric](10, 0) NOT NULL,
+				[CustomerName] [varchar](255) NOT NULL,
+				[Date] [datetime] NOT NULL,
+				[Customer] [varchar](101) NOT NULL,
+				[Document] [numeric](3, 0) NOT NULL,
+				[DocumentName] [varchar](200) NOT NULL,
+				[UserCol1] [varchar](max) NOT NULL,
+				[UserCol2] [varchar](max) NOT NULL,
+				[UserCol3] [varchar](max) NOT NULL,
+				[UserCol4] [varchar](max) NOT NULL,
+				[UserCol5] [varchar](max) NOT NULL,
+				[UserCol6] [varchar](max) NOT NULL,
+				[UserCol7] [varchar](max) NOT NULL,
+				[UserCol8] [varchar](max) NOT NULL,
+				[UserCol9] [varchar](max) NOT NULL,
+				[UserCol10] [varchar](max) NOT NULL,
+				[EXR] [varchar](50) NOT NULL,
+				[SEC] [varchar](50) NOT NULL,
+				[TPD] [varchar](50) NOT NULL,
+				[NDC] [numeric](10, 0) NOT NULL,
+				[Filter1] [varchar](max) NOT NULL,
+				[Filter2] [varchar](max) NOT NULL,
+				[Filter3] [varchar](max) NOT NULL,
+				[Filter4] [varchar](max) NOT NULL,
+				[Filter5] [varchar](max) NOT NULL,
+				[DeliveryCustomer] [varchar](101) NOT NULL,
+				[DeliveryCode] [varchar](60) NOT NULL,
+				[barcode] [varchar](255) NOT NULL,
+				[CreationNetIPAddress] [varchar](50) NOT NULL,
+				[CreationNetMachineName] [varchar](50) NOT NULL,
+				[CreationProcess] [varchar](50) NOT NULL,
+				[CreationUser] [varchar](20) NOT NULL,
+				[CreationDate] [varchar](8) NOT NULL,
+				[CreationTime] [varchar](6) NOT NULL,
+				[ModificationProcess] [varchar](50) NOT NULL,
+				[ModificationUser] [varchar](20) NOT NULL,
+				[ModificationDate] [varchar](8) NOT NULL,
+				[ModificationTime] [varchar](6) NOT NULL,
+				[ModificationNetIPAddress] [varchar](50) NOT NULL,
+				[ModificationNetMachineName] [varchar](50) NOT NULL,
+				[Status] [tinyint] NOT NULL,
+				 CONSTRAINT [PK_u_Kapps_tBOM_Header] PRIMARY KEY CLUSTERED 
+				(
+					[AutoId] ASC
+				) ON [PRIMARY]
+				) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY];
+
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Header] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Header_BOMKey]  DEFAULT ('') FOR [BOMKey];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Header] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Header_Number]  DEFAULT ((0)) FOR [Number];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Header] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Header_CustomerName]  DEFAULT ('') FOR [CustomerName];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Header] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Header_Date]  DEFAULT ('') FOR [Date];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Header] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Header_Customer]  DEFAULT ('') FOR [Customer];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Header] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Header_Document]  DEFAULT ((0)) FOR [Document];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Header] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Header_DocumentName]  DEFAULT ('') FOR [DocumentName];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Header] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Header_UserCol1]  DEFAULT ('') FOR [UserCol1];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Header] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Header_UserCol2]  DEFAULT ('') FOR [UserCol2];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Header] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Header_UserCol3]  DEFAULT ('') FOR [UserCol3];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Header] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Header_UserCol4]  DEFAULT ('') FOR [UserCol4];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Header] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Header_UserCol5]  DEFAULT ('') FOR [UserCol5];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Header] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Header_UserCol6]  DEFAULT ('') FOR [UserCol6];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Header] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Header_UserCol7]  DEFAULT ('') FOR [UserCol7];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Header] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Header_UserCol8]  DEFAULT ('') FOR [UserCol8];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Header] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Header_UserCol9]  DEFAULT ('') FOR [UserCol9];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Header] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Header_UserCol10]  DEFAULT ('') FOR [UserCol10];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Header] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Header_EXR]  DEFAULT ('') FOR [EXR];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Header] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Header_SEC]  DEFAULT ('') FOR [SEC];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Header] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Header_TPD]  DEFAULT ('') FOR [TPD];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Header] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Header_NDC]  DEFAULT ((0)) FOR [NDC];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Header] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Header_Filter1]  DEFAULT ('') FOR [Filter1];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Header] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Header_Filter2]  DEFAULT ('') FOR [Filter2];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Header] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Header_Filter3]  DEFAULT ('') FOR [Filter3];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Header] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Header_Filter4]  DEFAULT ('') FOR [Filter4];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Header] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Header_Filter5]  DEFAULT ('') FOR [Filter5];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Header] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Header_DeliveryCustomer]  DEFAULT ('') FOR [DeliveryCustomer];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Header] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Header_DeliveryCode]  DEFAULT ('') FOR [DeliveryCode];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Header] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Header_barcode]  DEFAULT ('') FOR [barcode];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Header] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Header_CreationNetIPAddress]  DEFAULT ('') FOR [CreationNetIPAddress];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Header] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Header_CreationNetMachineName]  DEFAULT ('') FOR [CreationNetMachineName];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Header] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Header_CreationProcess]  DEFAULT ('') FOR [CreationProcess];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Header] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Header_CreationUser]  DEFAULT ('') FOR [CreationUser];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Header] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Header_CreationDate]  DEFAULT ('') FOR [CreationDate];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Header] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Header_CreationTime]  DEFAULT ('') FOR [CreationTime];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Header] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Header_ModificationProcess]  DEFAULT ('') FOR [ModificationProcess];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Header] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Header_ModificationUser]  DEFAULT ('') FOR [ModificationUser];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Header] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Header_ModificationDate]  DEFAULT ('') FOR [ModificationDate];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Header] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Header_ModificationTime]  DEFAULT ('') FOR [ModificationTime];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Header] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Header_ModificationNetIPAddress]  DEFAULT ('') FOR [ModificationNetIPAddress];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Header] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Header_ModificationNetMachineName]  DEFAULT ('') FOR [ModificationNetMachineName];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Header] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Header_IsFinalProductBOM]  DEFAULT ((0)) FOR [Status];
+			
+			
+			CREATE TABLE u_Kapps_tBOM_Items (
+				[AutoId] [int] IDENTITY(1,1) NOT NULL,
+				[BOMItemsKey] [char](25) NOT NULL,
+				[Article] [char](100) NOT NULL,
+				[Description] [varchar](200) NOT NULL,
+				[Quantity] [numeric](14, 4) NOT NULL,
+				[QuantitySatisfied] [numeric](14, 4) NOT NULL,
+				[QuantityPending] [numeric](38, 3) NOT NULL,
+				[QuantityPicked] [decimal](38, 3) NOT NULL,
+				[BaseUnit] [varchar](25) NOT NULL,
+				[BusyUnit] [varchar](25) NOT NULL,
+				[ConversionFator] [int] NOT NULL,
+				[Warehouse] [varchar](50) NOT NULL,
+				[BOMKey] [char](25) NOT NULL,
+				[OriginalLineNumber] [numeric](10, 0) NOT NULL,
+				[UserCol1] [varchar](max) NOT NULL,
+				[UserCol2] [varchar](max) NOT NULL,
+				[UserCol3] [varchar](max) NOT NULL,
+				[UserCol4] [varchar](max) NOT NULL,
+				[UserCol5] [varchar](max) NOT NULL,
+				[UserCol6] [varchar](max) NOT NULL,
+				[UserCol7] [varchar](max) NOT NULL,
+				[UserCol8] [varchar](max) NOT NULL,
+				[UserCol9] [varchar](max) NOT NULL,
+				[UserCol10] [varchar](max) NOT NULL,
+				[EXR] [varchar](50) NOT NULL,
+				[SEC] [varchar](50) NOT NULL,
+				[TPD] [varchar](50) NOT NULL,
+				[NDC] [numeric](10, 0) NOT NULL,
+				[Filter1] [varchar](max) NOT NULL,
+				[Filter2] [varchar](max) NOT NULL,
+				[Filter3] [varchar](max) NOT NULL,
+				[Filter4] [varchar](max) NOT NULL,
+				[Filter5] [varchar](max) NOT NULL,
+				[Location] [varchar](max) NOT NULL,
+				[Lot] [varchar](100) NOT NULL,
+				[PalletType] [varchar](1) NOT NULL,
+				[PalletMaxUnits] [int] NOT NULL,
+				[IsComponent] [bit] NOT NULL,
+				[Sequence] [int] NOT NULL,
+				[Replaceable] [bit] NOT NULL,
+				[Tolerance] [int] NOT NULL,
+				[CreationNetIPAddress] [varchar](50) NOT NULL,
+				[CreationNetMachineName] [varchar](50) NOT NULL,
+				[CreationProcess] [varchar](50) NOT NULL,
+				[CreationUser] [varchar](20) NOT NULL,
+				[CreationDate] [varchar](8) NOT NULL,
+				[CreationTime] [varchar](6) NOT NULL,
+				[ModificationProcess] [varchar](50) NOT NULL,
+				[ModificationUser] [varchar](20) NOT NULL,
+				[ModificationDate] [varchar](8) NOT NULL,
+				[ModificationTime] [varchar](6) NOT NULL,
+				[ModificationNetIPAddress] [varchar](50) NOT NULL,
+				[ModificationNetMachineName] [varchar](50) NOT NULL,
+				[Status] [tinyint] NOT NULL,
+				CONSTRAINT [PK_u_Kapps_tBOM_Items] PRIMARY KEY CLUSTERED 
+				(
+					[AutoId] ASC
+				) ON [PRIMARY]
+				) ON [PRIMARY] TEXTIMAGE_ON [PRIMARY];
+
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Items] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Items_BOMItemsKey]  DEFAULT ('') FOR [BOMItemsKey];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Items] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Items_Article]  DEFAULT ('') FOR [Article];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Items] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Items_Description]  DEFAULT ('') FOR [Description];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Items] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Items_Quantity]  DEFAULT ((0)) FOR [Quantity];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Items] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Items_QuantitySatisfied]  DEFAULT ((0)) FOR [QuantitySatisfied];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Items] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Items_QuantityPending]  DEFAULT ((0)) FOR [QuantityPending];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Items] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Items_QuantityPicked]  DEFAULT ((0)) FOR [QuantityPicked];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Items] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Items_BaseUnit]  DEFAULT ('') FOR [BaseUnit];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Items] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Items_BusyUnit]  DEFAULT ('') FOR [BusyUnit];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Items] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Items_ConversionFator]  DEFAULT ((0)) FOR [ConversionFator];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Items] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Items_Warehouse]  DEFAULT ((0)) FOR [Warehouse];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Items] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Items_BOMKey]  DEFAULT ('') FOR [BOMKey];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Items] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Items_OriginalLineNumber]  DEFAULT ((0)) FOR [OriginalLineNumber];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Items] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Items_UserCol1]  DEFAULT ('') FOR [UserCol1];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Items] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Items_UserCol2]  DEFAULT ('') FOR [UserCol2];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Items] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Items_UserCol3]  DEFAULT ('') FOR [UserCol3];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Items] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Items_UserCol4]  DEFAULT ('') FOR [UserCol4];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Items] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Items_UserCol5]  DEFAULT ('') FOR [UserCol5];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Items] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Items_UserCol6]  DEFAULT ('') FOR [UserCol6];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Items] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Items_UserCol7]  DEFAULT ('') FOR [UserCol7];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Items] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Items_UserCol8]  DEFAULT ('') FOR [UserCol8];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Items] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Items_UserCol9]  DEFAULT ('') FOR [UserCol9];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Items] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Items_UserCol10]  DEFAULT ('') FOR [UserCol10];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Items] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Items_EXR]  DEFAULT ('') FOR [EXR];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Items] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Items_SEC]  DEFAULT ('') FOR [SEC];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Items] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Items_TPD]  DEFAULT ('') FOR [TPD];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Items] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Items_NDC]  DEFAULT ((0)) FOR [NDC];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Items] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Items_Filter1]  DEFAULT ('') FOR [Filter1];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Items] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Items_Filter2]  DEFAULT ('') FOR [Filter2];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Items] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Items_Filter3]  DEFAULT ('') FOR [Filter3];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Items] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Items_Filter4]  DEFAULT ('') FOR [Filter4];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Items] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Items_Filter5]  DEFAULT ('') FOR [Filter5];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Items] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Items_Location]  DEFAULT ('') FOR [Location];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Items] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Items_Lot]  DEFAULT ('') FOR [Lot];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Items] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Items_PalletType]  DEFAULT ('') FOR [PalletType];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Items] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Items_PalletMaxUnits]  DEFAULT ((0)) FOR [PalletMaxUnits];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Items] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Items_IsComponent]  DEFAULT ((0)) FOR [IsComponent];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Items] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Items_Sequence]  DEFAULT ((0)) FOR [Sequence];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Items] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Items_Replaceable]  DEFAULT ((0)) FOR [Replaceable];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Items] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Items_Tolerance]  DEFAULT ((0)) FOR [Tolerance];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Items] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Items_CreationNetIPAddress]  DEFAULT ('') FOR [CreationNetIPAddress];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Items] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Items_CreationNetMachineName]  DEFAULT ('') FOR [CreationNetMachineName];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Items] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Items_CreationProcess]  DEFAULT ('') FOR [CreationProcess];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Items] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Items_CreationUser]  DEFAULT ('') FOR [CreationUser];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Items] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Items_CreationDate]  DEFAULT ('') FOR [CreationDate];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Items] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Items_CreationTime]  DEFAULT ('') FOR [CreationTime];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Items] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Items_ModificationProcess]  DEFAULT ('') FOR [ModificationProcess];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Items] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Items_ModificationUser]  DEFAULT ('') FOR [ModificationUser];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Items] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Items_ModificationDate]  DEFAULT ('') FOR [ModificationDate];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Items] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Items_ModificationTime]  DEFAULT ('') FOR [ModificationTime];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Items] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Items_ModificationNetIPAddress]  DEFAULT ('') FOR [ModificationNetIPAddress];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Items] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Items_ModificationNetMachineName]  DEFAULT ('') FOR [ModificationNetMachineName];
+			ALTER TABLE [dbo].[u_Kapps_tBOM_Items] ADD  CONSTRAINT [DF_u_Kapps_tBOM_Items_Status]  DEFAULT ((0)) FOR [Status];
+			
+			ALTER TABLE dbo.u_Kapps_DossierLin ADD IsFinalProductBOM bit NOT NULL CONSTRAINT DF_u_Kapps_DossierLin_IsFinalProductBOM DEFAULT ((0));
+			
+		END
+
+		IF (@DatabaseVersion < 114)
+		BEGIN
+			ALTER TABLE u_Kapps_DossierLin ADD CabUserField11 varchar(max) CONSTRAINT DF_u_Kapps_DossierLin_CabUserField11 DEFAULT ('');
+			ALTER TABLE u_Kapps_DossierLin ADD CabUserField12 varchar(max) CONSTRAINT DF_u_Kapps_DossierLin_CabUserField12 DEFAULT ('');
+			ALTER TABLE u_Kapps_DossierLin ADD CabUserField13 varchar(max) CONSTRAINT DF_u_Kapps_DossierLin_CabUserField13 DEFAULT ('');
+			ALTER TABLE u_Kapps_DossierLin ADD CabUserField14 varchar(max) CONSTRAINT DF_u_Kapps_DossierLin_CabUserField14 DEFAULT ('');
+			ALTER TABLE u_Kapps_DossierLin ADD CabUserField15 varchar(max) CONSTRAINT DF_u_Kapps_DossierLin_CabUserField15 DEFAULT ('');
+
+			ALTER TABLE u_Kapps_DossierLin ADD LinUserField11 varchar(max) CONSTRAINT DF_u_Kapps_DossierLin_LinUserField11 DEFAULT ('');
+			ALTER TABLE u_Kapps_DossierLin ADD LinUserField12 varchar(max) CONSTRAINT DF_u_Kapps_DossierLin_LinUserField12 DEFAULT ('');
+			ALTER TABLE u_Kapps_DossierLin ADD LinUserField13 varchar(max) CONSTRAINT DF_u_Kapps_DossierLin_LinUserField13 DEFAULT ('');
+			ALTER TABLE u_Kapps_DossierLin ADD LinUserField14 varchar(max) CONSTRAINT DF_u_Kapps_DossierLin_LinUserField14 DEFAULT ('');
+			ALTER TABLE u_Kapps_DossierLin ADD LinUserField15 varchar(max) CONSTRAINT DF_u_Kapps_DossierLin_LinUserField15 DEFAULT ('');
+		END
+
+		IF (@DatabaseVersion < 115)
+		BEGIN
+			ALTER TABLE u_Kapps_Numerators ADD LastLoadNr bigint CONSTRAINT DF_u_Kapps_Numerators_LastLoadNr DEFAULT ('0');
+			ALTER TABLE u_Kapps_LoadingHeader ADD ProcessID varchar(25) CONSTRAINT DF_u_Kapps_LoadingHeader_ProcessID DEFAULT ('');
+			ALTER TABLE u_Kapps_LoadingHeader ADD ProcessType varchar(25) CONSTRAINT DF_u_Kapps_LoadingHeader_ProcessType DEFAULT ('');
+			ALTER TABLE u_Kapps_LoadingPallets ADD ProductID nvarchar(50) not null CONSTRAINT DF_u_Kapps_LoadingPallets_ProductID DEFAULT ('');
+		END
+
 
 		--
 		-- Actualizar DATABASEVERSION
 		--
+		SET @ThisScriptVersion = 115
+
+		IF (@ThisScriptVersion <> @BackDBVersion)
+		BEGIN
+			SET @ErrorMessage = 'A versão dos scripts da base de dados (' + CAST(@ThisScriptVersion as varchar(5))  + ') não corresponde com a versão do backoffice ('+ CAST(@BackDBVersion as varchar(5))+')';
+			RAISERROR (@ErrorMessage, 16, 1);
+		END
+
 		UPDATE u_Kapps_Parameters SET ParameterValue = @BackDBVersion WHERE UPPER(AppCode) = 'SYT' AND ParameterGroup='MAIN' and UPPER(ParameterID) = UPPER('DATABASEVERSION');
 
 	END

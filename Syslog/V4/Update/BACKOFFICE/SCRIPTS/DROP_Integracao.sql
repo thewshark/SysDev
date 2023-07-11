@@ -2,15 +2,15 @@
 -- Drop Scripts Integração
 --
 IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'u_Kapps_DateToString') AND type in (N'FN', N'IF', N'TF', N'FS', N'FT'))
-DROP FUNCTION u_Kapps_DateToString 
+DROP FUNCTION u_Kapps_DateToString
 GO
 
 IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'u_Kapps_TimeToString') AND type in (N'FN', N'IF', N'TF', N'FS', N'FT'))
-DROP FUNCTION u_Kapps_TimeToString 
+DROP FUNCTION u_Kapps_TimeToString
 GO
 
 IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'u_Kapps_EurToEsc') AND type in (N'FN', N'IF', N'TF', N'FS', N'FT'))
-DROP FUNCTION u_Kapps_EurToEsc 
+DROP FUNCTION u_Kapps_EurToEsc
 GO
 
 IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SP_u_Kapps_Login') AND type in (N'P', N'PC'))
@@ -73,32 +73,16 @@ IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SP_u_Kapps_P
 DROP PROCEDURE SP_u_Kapps_PriceCheckingUSR
 GO
 
-IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SPMSS_Reconstroi_APPSP_USR') AND type in (N'P', N'PC'))
-DROP PROCEDURE SPMSS_Reconstroi_APPSP_USR
-GO
-
 IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SP_u_Kapps_ProductPriceUSR') AND type in (N'P', N'PC'))
 DROP PROCEDURE SP_u_Kapps_ProductPriceUSR
-GO
-
-IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SPMSS_Reconstroi_APPSP_USR') AND type in (N'P', N'PC'))
-DROP PROCEDURE SPMSS_Reconstroi_APPSP_USR
 GO
 
 IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SP_u_Kapps_ProductsUSR') AND type in (N'P', N'PC'))
 DROP PROCEDURE SP_u_Kapps_ProductsUSR
 GO
 
-IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SPMSS_Reconstroi_APPSP_USR') AND type in (N'P', N'PC'))
-DROP PROCEDURE SPMSS_Reconstroi_APPSP_USR
-GO
-
 IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SP_u_Kapps_DossiersUSR') AND type in (N'P', N'PC'))
 DROP PROCEDURE SP_u_Kapps_DossiersUSR
-GO
-
-IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SPMSS_Reconstroi_APPSP_USR') AND type in (N'P', N'PC'))
-DROP PROCEDURE SPMSS_Reconstroi_APPSP_USR
 GO
 
 IF  EXISTS (SELECT * FROM sys.triggers WHERE object_id = OBJECT_ID(N'UpdateLineNUmber'))
@@ -109,24 +93,12 @@ IF  EXISTS (SELECT * FROM sys.indexes WHERE object_id = OBJECT_ID(N'u_Kapps_Doss
 DROP INDEX IX_u_Kapps_DossierLin_QtdFilter ON u_Kapps_DossierLin WITH ( ONLINE = OFF )
 GO
 
-IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SPMSS_Reconstroi_APPSP_USR') AND type in (N'P', N'PC'))
-DROP PROCEDURE SPMSS_Reconstroi_APPSP_USR
-GO
-
 IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SP_u_Kapps_ProductStockUSR') AND type in (N'P', N'PC'))
 DROP PROCEDURE SP_u_Kapps_ProductStockUSR
 GO
 
-IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SPMSS_Reconstroi_APPSP_USR') AND type in (N'P', N'PC'))
-DROP PROCEDURE SPMSS_Reconstroi_APPSP_USR
-GO
-
 IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SP_u_Kapps_PriceCheckingUSR') AND type in (N'P', N'PC'))
 DROP PROCEDURE SP_u_Kapps_PriceCheckingUSR
-GO
-
-IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SPMSS_Reconstroi_APPSP_USR') AND type in (N'P', N'PC'))
-DROP PROCEDURE SPMSS_Reconstroi_APPSP_USR
 GO
 
 IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SP_u_Kapps_EliminaTabelaTemporaria') AND type in (N'P', N'PC'))
@@ -195,4 +167,40 @@ GO
 
 IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SP_u_Kapps_InsertLot') AND type in (N'P', N'PC'))
 DROP PROCEDURE SP_u_Kapps_InsertLot
+GO
+
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SP_u_Kapps_Dossiers_ParametersUCabULin') AND type in (N'P', N'PC'))
+DROP PROCEDURE SP_u_Kapps_Dossiers_ParametersUCabULin
+GO
+
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SP_u_Kapps_UpdatePalletLocation') AND type in (N'P', N'PC'))
+DROP PROCEDURE SP_u_Kapps_UpdatePalletLocation
+GO
+
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SP_u_Kapps_tBOM_New') AND type in (N'P', N'PC'))
+DROP PROCEDURE SP_u_Kapps_tBOM_New
+GO
+
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SP_u_Kapps_Products_AddToDossierLin') AND type in (N'P', N'PC'))
+DROP PROCEDURE SP_u_Kapps_Products_AddToDossierLin
+GO
+
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SP_u_Kapps_BOM_CheckQuantity') AND type in (N'P', N'PC'))
+DROP PROCEDURE SP_u_Kapps_BOM_CheckQuantity
+GO
+
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SP_u_Kapps_SerialNumber_Insert') AND type in (N'P', N'PC'))
+DROP PROCEDURE SP_u_Kapps_SerialNumber_Insert
+GO
+
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SP_u_Kapps_Location_InsertLogModify') AND type in (N'P', N'PC'))
+DROP PROCEDURE SP_u_Kapps_Location_InsertLogModify
+GO
+
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SP_u_Kapps_GetRestrictions') AND type in (N'P', N'PC'))
+DROP PROCEDURE SP_u_Kapps_GetRestrictions
+GO
+
+IF  EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'SP_u_Kapps_CalculateUserFieldsUSR') AND type in (N'P', N'PC'))
+DROP PROCEDURE SP_u_Kapps_CalculateUserFieldsUSR
 GO
