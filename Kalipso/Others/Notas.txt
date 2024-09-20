@@ -1,0 +1,11 @@
+No caso de ocorrer erro ao correr o install.ps1 tem de habilitar correr scripts na maquina.
+
+Executar como administrador.
+
+x86 (32 bit)
+Open C:\Windows\SysWOW64\cmd.exe
+Run the command powershell Set-ExecutionPolicy RemoteSigned
+
+x64 (64 bit)
+Open C:\Windows\system32\cmd.exe
+Run the command powershell Set-ExecutionPolicy RemoteSigned
